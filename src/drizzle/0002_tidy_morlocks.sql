@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD CONSTRAINT "users_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rolesTable" ADD CONSTRAINT "rolesTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE no action ON UPDATE no action;

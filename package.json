@@ -4,21 +4,36 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bun": "latest",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
     "@types/pg": "^8.15.6",
     "drizzle-kit": "^0.31.7"
   },
   "scripts": {
     "dev": "bun --watch --env-file=.env src/app.ts",
+    "seed-permissions": "bun src/scripts/seed.permissions.ts",
+    "seed-role-permissions": "bun src/scripts/seed.role-permissions.ts",
+    "seed-roles": "bun src/scripts/seed.roles.ts",
     "start": "bun --env-file=.env src/app.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.8.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
     "drizzle-orm": "^0.44.7",
     "express": "^5.1.0",
+    "fs": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "pg": "^8.16.3",
     "postgres": "^3.4.7"
   }
