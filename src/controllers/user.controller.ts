@@ -1,10 +1,13 @@
 import type { Request, Response } from "express";
 import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
-import { rolesTable, userRoleTable, usersTable } from "../models";
+import { permissionsTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
 import { eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from 'bcrypt'
+import jwt from "jsonwebtoken";
+import { generateAccessToken, generateRefreshToken } from "../helpers/tokenGenerator";
+import type { TokenUser } from "../interface";
 
 const signupUser = async (req: Request, res: Response) => {
     try {
@@ -121,4 +124,79 @@ const signupUser = async (req: Request, res: Response) => {
     }
 }
 
-export { signupUser }
+const loginUser = async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+
+        console.log("Login Request Body :", req.body);
+
+        if ([email, password].some((field => field.trim() === "" || !field))) {
+            return res.status(400).json({ message: "Email and Password are required fields", status: 400 })
+        }
+
+        const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+        if (!user) {
+            return res.status(404).json({ message: "User with this email not found in the database", status: 404 })
+        }
+
+        const isPasswordValid = bcrypt.compareSync(password, user?.password_hash);
+
+        if (!isPasswordValid) {
+            return res.status(400).json({ message: "Invalid Credentials", status: 400 })
+        }
+
+        // Fetch users role and permissions
+        const userRolesWithPermissions = await db.select({
+            roleId: rolesTable.id,
+            roleName: rolesTable.name,
+            permissionSlug: permissionsTable.slug,
+            permissionModule: permissionsTable.module
+        }).from(userRoleTable)
+            .innerJoin(rolesTable, eq(userRoleTable.roleId, rolesTable.id))
+            .innerJoin(rolePermissionTable, eq(rolesTable.id, rolePermissionTable.roleId))
+            .innerJoin(permissionsTable, eq(rolePermissionTable.permissionId, permissionsTable.id))
+            .where(eq(userRoleTable.userId, user.id));
+
+        // Extract unique permissions (since a user might have multiple roles with overlapping permissions)
+        const permissions = [...new Set(userRolesWithPermissions.map(item => item.permissionSlug))];
+
+        // Extract unique roles
+        const roles = [...new Set(userRolesWithPermissions.map(item => item.roleName))];
+
+        // Create accessToken
+
+        const payload: TokenUser = {
+            id: user?.id,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            email: user?.email,
+            gender: user?.gender,
+            instituteId: user?.id,
+            phone: user?.phone,
+            profile: user?.profileImage || "",
+            permissions: permissions,
+            roles: roles
+        }
+
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict"
+        });
+
+        // Adding the accessToken to the userDetails which will further help the middleware
+        const userDetails = { ...user, accessToken, roles, permissions };
+
+        return res.status(200).json({ message: "Logged In", user: userDetails });
+
+    } catch (error) {
+        console.error("Error logging In :", error);
+        return res.status(500).json({ message: "Internal Server Error", status: 500 })
+    }
+}
+
+export { signupUser, loginUser }

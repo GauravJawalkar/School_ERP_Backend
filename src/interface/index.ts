@@ -30,3 +30,16 @@ export interface ContactInfo {
         youtube?: string;
     };
 }
+
+export interface TokenUser {
+    id: string;
+    firstName: string;
+    lastName?: string;
+    email: string;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    instituteId: string;
+    phone: string;
+    profile: string;
+    permissions: string[];
+    roles: string[]
+}
