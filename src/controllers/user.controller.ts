@@ -5,7 +5,6 @@ import { permissionsTable, rolePermissionTable, rolesTable, userRoleTable, users
 import { eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from 'bcrypt'
-import jwt from "jsonwebtoken";
 import { generateAccessToken, generateRefreshToken } from "../helpers/tokenGenerator";
 import type { TokenUser } from "../interface";
 
@@ -128,8 +127,6 @@ const loginUser = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        console.log("Login Request Body :", req.body);
-
         if ([email, password].some((field => field.trim() === "" || !field))) {
             return res.status(400).json({ message: "Email and Password are required fields", status: 400 })
         }
@@ -174,7 +171,7 @@ const loginUser = async (req: Request, res: Response) => {
             gender: user?.gender,
             instituteId: user?.id,
             phone: user?.phone,
-            profile: user?.profileImage || "",
+            profileImage: user?.profileImage || "",
             permissions: permissions,
             roles: roles
         }

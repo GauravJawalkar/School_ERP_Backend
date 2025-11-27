@@ -39,7 +39,7 @@ export interface TokenUser {
     gender?: 'MALE' | 'FEMALE' | 'OTHER';
     instituteId: string;
     phone: string;
-    profile: string;
+    profileImage: string;
     permissions: string[];
     roles: string[]
 }
