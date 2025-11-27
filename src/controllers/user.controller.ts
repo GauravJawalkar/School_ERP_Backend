@@ -161,8 +161,7 @@ const loginUser = async (req: Request, res: Response) => {
         // Extract unique roles
         const roles = [...new Set(userRolesWithPermissions.map(item => item.roleName))];
 
-        // Create accessToken
-
+        // Create accessToken and refreshToken
         const payload: TokenUser = {
             id: user?.id,
             firstName: user?.firstName,
@@ -182,7 +181,8 @@ const loginUser = async (req: Request, res: Response) => {
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: true,
-            sameSite: "strict"
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
         // Adding the accessToken to the userDetails which will further help the middleware
