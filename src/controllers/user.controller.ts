@@ -1,12 +1,13 @@
 import type { Request, Response } from "express";
 import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
-import { permissionsTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
+import { permissionsTable, resetPasswordTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
 import { eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from 'bcrypt'
 import { generateAccessToken, generateRefreshToken } from "../helpers/tokenGenerator";
 import type { TokenUser } from "../interface";
+import { sendEmail } from "../helpers/emailSender";
 
 const signupUser = async (req: Request, res: Response) => {
     try {
@@ -196,4 +197,73 @@ const loginUser = async (req: Request, res: Response) => {
     }
 }
 
-export { signupUser, loginUser }
+const forgotPassword = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+
+        if (!email || email.trim() === "") {
+            return res.status(400).json(new ApiError(400, "Email is required"));
+        }
+
+        const response = await sendEmail(email, "forgotPassword", res);
+
+        if (!response) {
+            return res.status(500).json({ status: 500, message: "Failed to send OTP email" });
+        }
+
+        return res.status(200).json({ status: 200, message: "OTP sent to your email successfully" });
+    } catch (error) {
+        console.error("Error in forgotPassword controller :", error);
+        return res.status(500).json({ status: 500, message: "Internal Server Error" });
+    }
+}
+
+const resetPassword = async (req: Request, res: Response) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        if ([email, otp, newPassword].some(field => field.trim() === "" || !field)) {
+            return res.status(400).json(new ApiError(400, "Please provide email, otp and newPassword"));
+        }
+
+        const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+        if (!user) {
+            return res.status(404).json(new ApiError(404, "User with this email not found"));
+        }
+
+        const [passwordResetRecord] = await db.select().from(resetPasswordTable).where(eq(resetPasswordTable.userId, user?.id));
+
+        if (!passwordResetRecord) {
+            return res.status(404).json(new ApiError(404, "No password reset request found for this user"));
+        }
+
+        const isOtpValid = bcrypt.compareSync(otp, passwordResetRecord?.otp);
+
+        if (!isOtpValid) {
+            return res.status(400).json(new ApiError(400, "Invalid OTP provided"));
+        }
+
+        if (passwordResetRecord.expiresAt < new Date()) {
+            return res.status(400).json(new ApiError(400, "OTP has expired"));
+        }
+
+        const encryptedPassword = bcrypt.hashSync(newPassword, Number(process.env.SALT_ROUNDS)).toString();
+
+        const response = await db.update(usersTable).set({ password_hash: encryptedPassword }).where(eq(usersTable.id, user?.id)).returning();
+
+        if (response.length > 0) {
+            await db.delete(resetPasswordTable).where(eq(resetPasswordTable.userId, user?.id));
+        } else {
+            return res.status(500).json(new ApiError(500, "Failed to reset the password"));
+        }
+
+        return res.status(200).json({ status: 200, message: "Password reset successfully" });
+
+    } catch (error) {
+        console.error("Error in resetPassword controller :", error);
+        return res.status(500).json({ status: 500, message: "Internal Server Error Resetting the password" });
+    }
+}
+
+export { signupUser, loginUser, forgotPassword, resetPassword }

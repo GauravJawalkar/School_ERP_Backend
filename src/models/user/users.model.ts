@@ -19,4 +19,12 @@ const usersTable = pgTable("users", {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export { usersTable }
+const resetPasswordTable = pgTable("resetPasswordTable", {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("userId").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    otp: varchar("otp").notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+})
+
+export { usersTable, resetPasswordTable }
