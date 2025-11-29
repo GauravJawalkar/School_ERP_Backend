@@ -1,7 +1,10 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { academicYearsTable } from "../models";
+import { academicYearsTable, rolesTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
+import type { BankDetails, TokenUser } from "../interface";
+import bcrypt from "bcrypt";
+import { staffTable } from "../models/staff/staff.model";
 
 const createAcademicYear = async (req: Request, res: Response) => {
     try {
@@ -11,7 +14,7 @@ const createAcademicYear = async (req: Request, res: Response) => {
         if (!name || !startDate || !endDate || !instituteId) {
             return res.status(400).json({
                 message: "Name, startDate, endDate, and instituteId are required",
-                status: 400
+                status: 400,
             });
         }
 
@@ -75,21 +78,153 @@ const createAcademicYear = async (req: Request, res: Response) => {
             .json({ message: "Academic Year created successfully", status: 201 });
     } catch (error) {
         console.error("Error creating academic Year: ", error);
-        return res
-            .status(500)
-            .json({
-                message: "Internal Server Error creating academic year",
-                status: 500,
-            });
+        return res.status(500).json({
+            message: "Internal Server Error creating academic year",
+            status: 500,
+        });
     }
 };
 
 const createStaff = async (req: Request, res: Response) => {
     try {
+        const { firstName, lastName, instituteId, email, phone, gender, password, isActive, roleName, employeeCode, designation, joiningDate, salaryBasic, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankBranchName, bankAccType, upiId } = req.body;
+
+        if ([firstName, lastName, instituteId, email, phone, gender, password, roleName, employeeCode, designation, joiningDate, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankAccType,].some((field) => !field || field.trim() === "")
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message: "Please check if all the required fields are provided",
+                    status: 400,
+                });
+        }
+
+        const bankDetails: BankDetails = {
+            bankName,
+            bankAccHolderName,
+            bankAccNo,
+            bankIFSC,
+            bankBranchName,
+            bankAccType,
+            upiId,
+        };
+
+        const existingUser = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.email, email))
+            .limit(1);
+
+        // TODO: if the user with this email already exist then create a new api where you can just add that user to the StaffTable
+
+        if (existingUser.length > 0) {
+            return res
+                .status(400)
+                .json({ message: "User with this email already exists", status: 400 });
+        }
+
+        if (roleName === "SUPER_ADMIN") {
+            return res
+                .status(403)
+                .json({ status: 403, message: "You Cannot assign SUPER_ADMIN role" });
+        }
+
+        const [targetRole] = await db
+            .select({ id: rolesTable.id, name: rolesTable.name })
+            .from(rolesTable)
+            .where(eq(rolesTable.name, roleName))
+            .limit(1);
+
+        if (!targetRole) {
+            return res
+                .status(404)
+                .json({
+                    status: 404,
+                    message: `Role '${roleName}' not found in the database.`,
+                });
+        }
+
+        const encryptedPassword = bcrypt
+            .hashSync(password, Number(process.env.SALT_ROUNDS))
+            .toString();
+
+        const [newUser] = await db
+            .insert(usersTable)
+            .values({
+                firstName,
+                lastName,
+                instituteId,
+                email,
+                phone,
+                gender,
+                password_hash: encryptedPassword,
+                isActive,
+            }).returning();
+
+        if (!newUser) {
+            return res
+                .status(500)
+                .json({ message: "Failed to create user", status: 500 });
+        }
+
+        const assignedBy = (req.user && typeof req.user !== "string" && "id" in req.user) ? (req.user as TokenUser).id : undefined;
+
+        const [userRoleAssignment] = await db.insert(userRoleTable).values({
+            userId: newUser.id,         // The user we just created
+            roleId: targetRole.id,      // The role they should have (TEACHER, ACCOUNTANT, etc.)
+            assignedBy: assignedBy, // The admin who is assigning this role
+        }).returning();
+
+        if (!userRoleAssignment) {
+            // Rollback: Delete the user if role assignment fails
+            await db.delete(usersTable).where(eq(usersTable.id, newUser.id));
+            return res
+                .status(500)
+                .json({ status: 500, message: "Failed to assign role to user" });
+        }
+
+        const [newStaff] = await db
+            .insert(staffTable)
+            .values({
+                userId: newUser.id,
+                employeeCode,
+                firstName,
+                lastName,
+                designation,
+                joiningDate,
+                salaryBasic,
+                bankDetails,
+            }).returning();
+
+        if (!newStaff) {
+            // Rollback: Delete the user and user role assignment if staff creation fails
+            await db.delete(userRoleTable).where(eq(userRoleTable.userId, newUser.id));
+            await db.delete(usersTable).where(eq(usersTable.id, newUser.id));
+            return res
+                .status(500)
+                .json({ status: 500, message: "Failed to create staff record" });
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: `Staff created successfully with ${roleName} role`,
+            data: {
+                user: newUser.id,
+                staff: newStaff.id,
+                role: targetRole.name,
+                schoolId: instituteId,
+            },
+        });
 
     } catch (error) {
-
+        console.error("Error creating Staff : ", error);
+        return res
+            .status(500)
+            .json({
+                message: "Internal Server Error creating/adding staff",
+                status: 500,
+            });
     }
-}
+};
 
-export { createAcademicYear };
+export { createAcademicYear, createStaff };

@@ -7,9 +7,9 @@ export const staffTable = pgTable('staffTable', {
     employeeCode: varchar('employeeCode', { length: 50 }).notNull(),
     firstName: varchar('firstName', { length: 100 }).notNull(),
     lastName: varchar('lastName', { length: 100 }).notNull(),
-    designation: varchar('lastName', { length: 100 }).notNull(),
-    department: varchar('department').notNull(),
-    joining_date: date('joiningDate').notNull(),
+    designation: varchar('designation', { length: 100 }).notNull(),
+    department: varchar('department'),
+    joiningDate: date('joiningDate').notNull(),
     salaryBasic: numeric('salaryBasic', { precision: 10, scale: 2 }).notNull(),
     bankDetails: jsonb('bankDetails').notNull()
 })

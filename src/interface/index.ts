@@ -43,3 +43,13 @@ export interface TokenUser {
     permissions: string[];
     roles: string[]
 }
+
+export interface BankDetails {
+    bankName: string;
+    bankAccHolderName: string;
+    bankAccNo: string;
+    bankIFSC: string;
+    bankBranchName?: string;
+    bankAccType: "savings" | "current";
+    upiId?: string;
+}

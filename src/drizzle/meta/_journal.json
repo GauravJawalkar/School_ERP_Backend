@@ -71,6 +71,20 @@
       "when": 1764434789335,
       "tag": "0009_known_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1764441509403,
+      "tag": "0010_conscious_phantom_reporter",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1764441829960,
+      "tag": "0011_cultured_devos",
+      "breakpoints": true
     }
   ]
 }
