@@ -1,4 +1,4 @@
-import { pgTable, varchar, integer, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, varchar, integer, timestamp, json, jsonb } from "drizzle-orm/pg-core";
 import type { ContactInfo } from "../../interface";
 
 export const instituteProfileTable = pgTable('instituteProfileTable', {
@@ -7,7 +7,7 @@ export const instituteProfileTable = pgTable('instituteProfileTable', {
     affiliationNumber: varchar("affiliationNumber").notNull().unique(),
     address: varchar("address").notNull(),
     logoUrl: varchar("logo"),
-    contactInfo: json("contactInfo").$type<ContactInfo>(),
+    contactInfo: jsonb("contactInfo").$type<ContactInfo>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().notNull()
 })

@@ -64,6 +64,13 @@
       "when": 1764353650298,
       "tag": "0008_oval_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1764434789335,
+      "tag": "0009_known_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

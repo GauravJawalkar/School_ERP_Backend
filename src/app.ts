@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 const allowedOrigins = ['http://localhost:3000'];
 
-app.listen(PORT, () => { console.log(`🚀 Server running on http://localhost:${PORT}`); })
+app.listen(PORT, () => { console.log(`🚀 Server running on http://localhost:${PORT}`) })
 
 // Middlewares
 app.use(express.json());
@@ -14,9 +14,11 @@ app.use(cookieParser());
 app.use(cors({ origin: allowedOrigins }));
 
 // Specific controllers imports
-import userRouter from './routes/user.route';
-import instituteRouter from './routes/institute.route'
+import userRouter from './routes/auth.route';
+import schoolRouter from './routes/institute.route'
+import adminRouter from './routes/admin.routes'
 
 // Routes
-app.use('/api/v1/user/', userRouter);
-app.use('/api/v1/institute', instituteRouter);
+app.use('/api/v1/auth/', userRouter);
+app.use('/api/v1/institute', schoolRouter);
+app.use('/api/v1/admin', adminRouter);

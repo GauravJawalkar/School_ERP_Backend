@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { forgotPassword, loginUser, resetPassword, signupUser } from "../controllers/user.controller";
+import { forgotPassword, loginUser, resetPassword, signupUser } from "../controllers/auth.controller";
 import { upload } from "../middlewares/multer.middleware";
 
 const router = Router();

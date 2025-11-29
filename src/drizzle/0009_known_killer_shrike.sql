@@ -1,0 +1,1 @@
+ALTER TABLE "instituteProfileTable" ALTER COLUMN "contactInfo" SET DATA TYPE jsonb;
