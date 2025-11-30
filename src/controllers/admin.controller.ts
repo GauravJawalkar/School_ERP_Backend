@@ -4,7 +4,7 @@ import { academicYearsTable, rolesTable, userRoleTable, usersTable } from "../mo
 import { and, eq } from "drizzle-orm";
 import type { BankDetails, TokenUser } from "../interface";
 import bcrypt from "bcrypt";
-import { staffTable } from "../models/staff/staff.model";
+import { staffTable, teacherProfileTable } from "../models/staff/staff.model";
 
 const createAcademicYear = async (req: Request, res: Response) => {
     try {
@@ -203,6 +203,24 @@ const createStaff = async (req: Request, res: Response) => {
             return res
                 .status(500)
                 .json({ status: 500, message: "Failed to create staff record" });
+        }
+
+        if (roleName === "TEACHER") {
+            // Create teacher profile entry
+            try {
+                await db.insert(teacherProfileTable).values({
+                    staffId: newStaff.id
+                })
+            } catch (error) {
+                console.error("Error creating teacher profile: ", error);
+                // Rollback: Delete the staff, user role assignment, and user if teacher profile creation fails
+                await db.delete(staffTable).where(eq(staffTable.id, newStaff.id));
+                await db.delete(userRoleTable).where(eq(userRoleTable.userId, newUser.id));
+                await db.delete(usersTable).where(eq(usersTable.id, newUser.id));
+                return res
+                    .status(500)
+                    .json({ status: 500, message: "Failed to create teacher profile" });
+            }
         }
 
         return res.status(201).json({

@@ -1,5 +1,7 @@
-import { pgTable, varchar, date, integer, uuid, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, varchar, date, integer, uuid, numeric, jsonb, boolean, time, pgEnum } from "drizzle-orm/pg-core";
 import { usersTable } from "../user/users.model";
+
+export const attendanceStatusEnum = pgEnum('status', ['PRESENT', 'ABSENT', 'LATE', 'ON_LEAVE', 'HOLIDAY']);
 
 export const staffTable = pgTable('staffTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
@@ -13,3 +15,22 @@ export const staffTable = pgTable('staffTable', {
     salaryBasic: numeric('salaryBasic', { precision: 10, scale: 2 }).notNull(),
     bankDetails: jsonb('bankDetails').notNull()
 })
+
+export const teacherProfileTable = pgTable("teacherProfileTable", {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    staffId: integer('staffId').references(() => staffTable.id).notNull(),
+    qualification: jsonb('qualification'),
+    majorSubjects: jsonb('majorSubjects'),      
+    weeklyWorkloadLimit: jsonb('weeklyWorkloadLimit'),
+    isClassTeacher: boolean('isClassTeacher').default(false)
+})
+
+export const staffAttendanceTable = pgTable('staffAttendanceTable', {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    staffId: integer('staffId').references(() => staffTable.id).notNull(),
+    date: date('date').notNull(),
+    checkInTime: time('checkInTime').notNull(),
+    checkOutTime: time('checkOutTime'),
+    status: attendanceStatusEnum('status').notNull(),
+    biometricDeviceId: varchar('biometricDeviceId', { length: 100 }),
+}) 
