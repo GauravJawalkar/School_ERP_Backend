@@ -1,10 +1,12 @@
-import { boolean, date, integer, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, date, integer, pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 import { staffTable } from "../staff/staff.model";
+import { usersTable } from "../user/users.model";
 
 export const classSectionEnums = pgEnum('classSectionName', ['A', 'B', 'C', 'D', 'E', 'F'])
 export const subjectTypeEnum = pgEnum('subjectType', ['THEORY', 'PRACTICAL', 'LAB'])
 export const daysOfWeekEnum = pgEnum('daysOfWeek', ['1', '2', '3', '4', '5', '6', '7'])
+export const applicationStatusEnum = pgEnum('applicationStatus', ['PENDING', 'APPROVED', 'REJECTED']);
 
 export const academicYearsTable = pgTable('academicYearsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
@@ -20,6 +22,15 @@ export const admissionsTable = pgTable('admissionsTable', {
     academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
     admissionDate: date('admissionDate').notNull(),
     lastAdmissionNo: integer('lastAdmissionNo').notNull(),
+    instituteId: integer('instituteId').notNull().references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('userId').references(() => usersTable.id, { onDelete: 'cascade' }).notNull(),
+    name: varchar('name', { length: 100 }).notNull(),
+    board: varchar('board', { length: 100 }).notNull(),
+    parentPhoneNo: varchar('parentPhoneNo', { length: 15 }).notNull(),
+    applicationStatus: applicationStatusEnum('status').notNull().default('PENDING'),
+    classId: integer('classId').references(() => classesTable.id, { onDelete: 'cascade' }).notNull(),
+    createdAt: timestamp('createdAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
 })
 
 export const classesTable = pgTable('classesTable', {

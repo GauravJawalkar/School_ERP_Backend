@@ -1,0 +1,1 @@
+ALTER TABLE "admissionsTable" ALTER COLUMN "userId" SET DATA TYPE uuid;

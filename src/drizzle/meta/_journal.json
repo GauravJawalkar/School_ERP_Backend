@@ -113,6 +113,20 @@
       "when": 1764530108032,
       "tag": "0015_smooth_doctor_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1764700693369,
+      "tag": "0016_furry_mantis",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1764700751393,
+      "tag": "0017_lumpy_captain_cross",
+      "breakpoints": true
     }
   ]
 }
