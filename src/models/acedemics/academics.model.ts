@@ -15,6 +15,13 @@ export const academicYearsTable = pgTable('academicYearsTable', {
     isActive: boolean('isActiveYear').notNull(),
 })
 
+export const admissionsTable = pgTable('admissionsTable', {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
+    admissionDate: date('admissionDate').notNull(),
+    lastAdmissionNo: integer('lastAdmissionNo').notNull(),
+})
+
 export const classesTable = pgTable('classesTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     instituteId: integer('instituteId').references(() => instituteProfileTable.id).notNull(),

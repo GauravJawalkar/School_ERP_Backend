@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 
 const createAddmission = async (req: Request, res: Response) => {
     try {
-
+        const { } = req.body;
     } catch (error) {
         console.log("Error creating addmission: ", error);
         return res.status(500).json({

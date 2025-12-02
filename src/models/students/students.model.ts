@@ -52,5 +52,5 @@ export const studentAttendance = pgTable('studentAttendance', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     studentId: integer('studentId').references(() => studentsTable.id, { onDelete: 'cascade' }).notNull(),
     status: studentAttendanceStatus('status').notNull(),
-    remarks: text('remarks') 
+    remarks: text('remarks')
 })
