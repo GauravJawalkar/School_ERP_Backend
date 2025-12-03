@@ -127,6 +127,13 @@
       "when": 1764700751393,
       "tag": "0017_lumpy_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1764783821919,
+      "tag": "0018_special_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

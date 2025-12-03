@@ -1,8 +1,8 @@
 import type { Request, Response } from "express"
 import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
-import { instituteProfileTable, rolesTable, userRoleTable, usersTable } from "../models";
-import { eq } from "drizzle-orm";
+import { classesTable, instituteProfileTable, rolesTable, sectionsTable, userRoleTable, usersTable } from "../models";
+import { and, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
 import type { TokenUser } from "../interface";
@@ -159,4 +159,85 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin }
+const createSchoolClass = async (req: Request, res: Response) => {
+    try {
+        const { instituteId, className, academicYearId, capacity } = req.body;
+
+        if (!instituteId || !className || !academicYearId) {
+            return res.status(400).json({ message: 'Please provide required fields', status: 400 })
+        }
+
+        const [existingClass] = await db
+            .select()
+            .from(classesTable)
+            .where(
+                and(
+                    eq(classesTable.className, className),
+                    eq(classesTable.academicYearId, academicYearId)
+                )
+            ).limit(1);
+
+        if (existingClass) {
+            return res.status(400).json({ message: 'Class with the same name already exists for this academic year.', status: 400 });
+        }
+
+        const [newClass] = await db.insert(classesTable).values({
+            instituteId,
+            className,
+            academicYearId,
+            capacity
+        }).returning();
+
+        if (!newClass) {
+            return res.status(400).json({ message: 'Failed to create the class', status: 400 });
+        }
+
+        return res.status(201).json({ message: 'Class Created Successfully', data: newClass, status: 201 });
+
+    } catch (error) {
+        return res.status(500).json({ message: `Internal Server Error creating class`, error: error })
+    }
+}
+
+const createClassSection = async (req: Request, res: Response) => {
+    try {
+        const { name, classId, capacity, classTeacherId, roomNumber } = req.body;
+
+        if (!name || !classId) {
+            return res.status(400).json({ message: 'Please provide required fields', status: 400 });
+        }
+
+        const [existingSection] = await db
+            .select()
+            .from(sectionsTable)
+            .where(
+                and(
+                    eq(sectionsTable.name, name),
+                    eq(sectionsTable.classId, classId)
+                )
+            ).limit(1);
+
+        if (existingSection) {
+            return res.status(400).json({ message: 'The section with this name already exist for this class', status: 400 });
+        }
+
+        const [newSection] = await db.insert(sectionsTable).values({
+            name,
+            classId,
+            classTeacherId,
+            capacity,
+            roomNumber
+        }).returning();
+
+        if (!newSection) {
+            return res.status(400).json({ message: 'Failed to create the section', status: 400 });
+        }
+
+        return res.status(201).json({ message: 'Section created Successfully', data: newSection, status: 201 });
+
+    } catch (error) {
+        return res.status(500).json({ message: 'Internal server error creating section for class', error: error, status: 500 })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection }
