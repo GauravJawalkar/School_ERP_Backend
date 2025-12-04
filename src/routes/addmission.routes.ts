@@ -1,18 +1,23 @@
 import { Router } from "express";
-import { createAddmission } from "../controllers/admission.controller";
-import { checkUserRoles } from "../middlewares/checkRoles.middleware";
+import { approveAddmission, createAddmission } from "../controllers/admission.controller";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
-
+import { authenticateUser } from "../middlewares/authenticate.middleware";
 
 const router = Router();
 
-router.route('/createAddmission')
+router
+    .route('/createAddmission')
     .post(
-        checkUserPersmission([
-            "admission.view",
-            "admission.create",
-            "admission.update"]),
-        createAddmission
-    );
+        authenticateUser,
+        checkUserPersmission(["admission.create"]),
+        createAddmission);
+
+router
+    .route('/approveAdmission/:id')
+    .post(
+        authenticateUser,
+        checkUserPersmission(['admission.update']),
+        approveAddmission
+    )
 
 export default router

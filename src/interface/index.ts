@@ -53,3 +53,13 @@ export interface BankDetails {
     bankAccType: "savings" | "current";
     upiId?: string;
 }
+
+export interface TemplateParams {
+    studentName: string;
+    temporaryPassword: string;
+    schoolName: string;
+    contactEmail: string;
+    contactPhone: string;
+    schoolAddress: string;
+    loginUrl: string;
+}

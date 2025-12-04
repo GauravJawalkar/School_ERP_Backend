@@ -6,7 +6,7 @@ import { usersTable } from "../user/users.model";
 export const classSectionEnums = pgEnum('classSectionName', ['A', 'B', 'C', 'D', 'E', 'F'])
 export const subjectTypeEnum = pgEnum('subjectType', ['THEORY', 'PRACTICAL', 'LAB'])
 export const daysOfWeekEnum = pgEnum('daysOfWeek', ['1', '2', '3', '4', '5', '6', '7'])
-export const applicationStatusEnum = pgEnum('applicationStatus', ['PENDING', 'APPROVED', 'REJECTED']);
+export const applicationStatusEnum = pgEnum('applicationStatus', ['PENDING', 'APPROVED', 'REJECTED', 'INQUIRY']);
 
 export const academicYearsTable = pgTable('academicYearsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
@@ -21,9 +21,8 @@ export const admissionsTable = pgTable('admissionsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
     admissionDate: date('admissionDate').notNull(),
-    lastAdmissionNo: integer('lastAdmissionNo').notNull(),
     instituteId: integer('instituteId').references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
-    userId: uuid('userId').references(() => usersTable.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('userId').references(() => usersTable.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 100 }).notNull(),
     board: varchar('board', { length: 100 }).notNull(),
     parentPhoneNo: varchar('parentPhoneNo', { length: 15 }).notNull(),
@@ -73,6 +72,7 @@ export const subjectAllocationsTable = pgTable('subjectAllocationsTable', {
 
 export const timeTableSlotsTable = pgTable('timeTableSlotsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    classId: integer('classId').references(() => classesTable.id, { onDelete: 'cascade' }).notNull(),
     sectionId: integer('sectionId').references(() => sectionsTable.id, { onDelete: 'cascade' }).notNull(),
     dayOfWeek: daysOfWeekEnum('dayOfWeek').notNull(),
     startTime: varchar('startTime', { length: 10 }).notNull(),
