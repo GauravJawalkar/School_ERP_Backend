@@ -59,7 +59,25 @@ export const subjectsTable = pgTable('subjectsTable', {
     instituteId: integer("instituteId").references(() => instituteProfileTable.id),
     name: varchar('name', { length: 50 }).notNull(),
     code: varchar('code', { length: 20 }),
-    type: subjectTypeEnum('type').notNull()
+    type: subjectTypeEnum('type').notNull(),
+    description: varchar('description', { length: 255 }),
+    isActive: boolean('isActive').default(true),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const classSubjectsTable = pgTable('classSubjectsTable', {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    classId: integer('classId').references(() => classesTable.id, { onDelete: 'cascade' }).notNull(),
+    subjectId: integer('subjectId').references(() => subjectsTable.id, { onDelete: 'cascade' }).notNull(),
+    academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
+    displayName: varchar('displayName', { length: 100 }),
+    maxMarks: integer('maxMarks'),
+    minPassingMarks: integer('minPassingMarks'),
+    isCompulsory: boolean('isCompulsory').default(true),
+    isActive: boolean('isActive').default(true),
+    createdAt: timestamp('createdAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
 })
 
 export const subjectAllocationsTable = pgTable('subjectAllocationsTable', {

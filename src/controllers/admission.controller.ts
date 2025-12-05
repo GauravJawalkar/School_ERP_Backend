@@ -183,6 +183,7 @@ const approveAddmission = async (req: Request, res: Response) => {
                 lastName,
                 DOB,
                 gender,
+                currentClassId: approveAddmission.classId,
                 status: 'ACTIVE'
             }).returning();
 
@@ -191,7 +192,7 @@ const approveAddmission = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Failed to create an entry in the studentTable', status: 400 })
         }
 
-        // Now you have created an addmission then approved the addmissionStatus then created a user record and finally created a record in the students table (Final enrollment). Now send the credentials to the parents email updating them about the addmission confirmation and login email and FirstTimeLoginPassword to login into their childs account
+        // Admission → Approval → User Creation → Enrollment → Login Access
 
         const sendCredentialsOnMail = await sendFirstTimeCredentialsEmail(
             {

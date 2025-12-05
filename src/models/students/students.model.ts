@@ -16,7 +16,7 @@ export const studentsTable = pgTable('studentsTable', {
     lastName: varchar('lastName', { length: 50 }).notNull(),
     DOB: date('DOB').notNull(),
     gender: genderEnum('gender').notNull(),
-    currentClassId: integer('currentClassId').references(() => classesTable.id),
+    currentClassId: integer('currentClassId').references(() => classesTable.id).notNull(),
     currentSectionId: integer('currentSectionId').references(() => sectionsTable.id),
     category: castCategoryEnum('category'),
     status: studentStatusEnum('status').notNull(),

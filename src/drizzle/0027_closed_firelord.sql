@@ -1,0 +1,1 @@
+ALTER TABLE "studentsTable" ALTER COLUMN "currentSectionId" DROP NOT NULL;

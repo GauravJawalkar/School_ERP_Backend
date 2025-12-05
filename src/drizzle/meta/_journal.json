@@ -183,6 +183,27 @@
       "when": 1764961883442,
       "tag": "0025_daily_elektra",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1764963044060,
+      "tag": "0026_bored_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1764963296376,
+      "tag": "0027_closed_firelord",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1764965884372,
+      "tag": "0028_secret_maelstrom",
+      "breakpoints": true
     }
   ]
 }
