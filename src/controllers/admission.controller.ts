@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { admissionsTable, rolesTable, userRoleTable, usersTable } from "../models";
+import { admissionsTable, rolesTable, studentsTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import bcrypt from 'bcrypt'
 import type { TokenUser } from "../interface";
@@ -62,10 +62,10 @@ const approveAddmission = async (req: Request, res: Response) => {
     // TODO : For approving addmission application just check if the fee is 30% fee is paid or not.
     try {
         const addmissionId = Number(req.params.id);
-        const { firstName, lastName, instituteId, email, phone, gender } = req.body;
+        const { firstName, lastName, instituteId, email, phone, gender, DOB } = req.body;
         const roleName = "STUDENT";
 
-        if (!firstName || !lastName || !instituteId || !email || !phone || !gender) {
+        if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
@@ -171,6 +171,27 @@ const approveAddmission = async (req: Request, res: Response) => {
                 .where(eq(admissionsTable.id, addmissionId)).returning();
         }
 
+        // Now the user is created and role is assigned as student successfully, so now add the entry in students table
+
+        const [newStudentRecord] = await db
+            .insert(studentsTable)
+            .values({
+                instituteId,
+                admissionNo: addmissionId,
+                userId: newUser.id,
+                firstName,
+                lastName,
+                DOB,
+                gender,
+                status: 'ACTIVE'
+            }).returning();
+
+        if (!newStudentRecord) {
+            await db.delete(usersTable).where(eq(usersTable.id, newUser.id));
+            return res.status(400).json({ message: 'Failed to create an entry in the studentTable', status: 400 })
+        }
+
+        // Now you have created an addmission then approved the addmissionStatus then created a user record and finally created a record in the students table (Final enrollment). Now send the credentials to the parents email updating them about the addmission confirmation and login email and FirstTimeLoginPassword to login into their childs account
 
         const sendCredentialsOnMail = await sendFirstTimeCredentialsEmail(
             {

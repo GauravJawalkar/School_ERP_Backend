@@ -148,6 +148,41 @@
       "when": 1764872267259,
       "tag": "0020_tiresome_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1764959889553,
+      "tag": "0021_calm_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1764960181496,
+      "tag": "0022_perpetual_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1764960293167,
+      "tag": "0023_youthful_the_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1764960676010,
+      "tag": "0024_medical_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1764961883442,
+      "tag": "0025_daily_elektra",
+      "breakpoints": true
     }
   ]
 }
