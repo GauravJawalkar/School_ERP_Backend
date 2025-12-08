@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
-import { classesTable, instituteProfileTable, rolesTable, sectionsTable, userRoleTable, usersTable } from "../models";
+import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, subjectsTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
@@ -240,4 +240,111 @@ const createClassSection = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection }
+const createSubject = async (req: Request, res: Response) => {
+    try {
+        const { instituteId, name, code, type, description, isActive } = req.body;
+
+        if (!instituteId || !name || !type) {
+            return res.status(400).json({ message: "Please provide the required fields", status: 400 });
+        }
+
+        const [existingSubject] = await db
+            .select()
+            .from(subjectsTable)
+            .where(
+                and(
+                    eq(subjectsTable.name, name),
+                    eq(subjectsTable.instituteId, instituteId),
+                    eq(subjectsTable.type, type)
+                )
+            ).limit(1);
+
+        if (existingSubject) {
+            return res.status(400).json({ message: "The subject already exists for this school", status: 400 })
+        }
+
+        const [newSubject] = await db
+            .insert(subjectsTable)
+            .values({
+                instituteId,
+                name,
+                type,
+                code,
+                description,
+                isActive
+            }).returning();
+
+        if (!newSubject) {
+            return res.status(400).json({ message: "Failed to create the subject", status: 400 })
+        }
+
+        return res.status(201).json({ message: "Subject created successfully", status: 201 });
+
+    } catch (error) {
+        return res.status(500).json({ message: 'Internal server error creating subject', status: 500 })
+    }
+}
+
+const createClassSubject = async (req: Request, res: Response) => {
+    try {
+        const { classId, subjectId, academicYearId, displayName, maxMarks, minPassingMarks, isCompulsory, isActive } = req.body;
+
+        if (!classId || !subjectId || !academicYearId || !displayName) {
+            return res.status(400).json({
+                message: "Please provide required fields for creating subject for this class",
+                status: 400
+            });
+        }
+
+        const [exstingClassSubject] = await db
+            .select()
+            .from(classSubjectsTable)
+            .where(
+                and(
+                    eq(classSubjectsTable.classId, classId),
+                    eq(classSubjectsTable.academicYearId, academicYearId),
+                    eq(classSubjectsTable.subjectId, subjectId),
+                )
+            ).limit(1);
+
+        if (exstingClassSubject) {
+            return res.status(400).json({
+                message: "This subject already exists for this class",
+                status: 400
+            });
+        }
+
+        const [newClassSubject] = await db
+            .insert(classSubjectsTable)
+            .values({
+                classId,
+                subjectId,
+                academicYearId,
+                displayName,
+                maxMarks,
+                minPassingMarks,
+                isCompulsory,
+                isActive
+            }).returning();
+
+        if (!newClassSubject) {
+            return res.status(400).json({
+                message: "Failed to create the classSubject",
+                status: 400
+            })
+        }
+
+        return res.status(201).json({
+            message: "New Class Subject created successfully",
+            status: 201
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal Server Error creating subject for a class",
+            status: 500
+        })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject }

@@ -1,5 +1,5 @@
 import Router from 'express'
-import { createClassSection, createSchool, createSchoolAdmin, createSchoolClass } from '../controllers/institute.controller';
+import { createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject } from '../controllers/institute.controller';
 import { upload } from '../middlewares/multer.middleware';
 import { authenticateUser } from '../middlewares/authenticate.middleware';
 import { checkUserPersmission } from '../middlewares/checkPermission.middleware';
@@ -36,6 +36,22 @@ router
     .post(
         authenticateUser,
         checkUserPersmission(['class.create']),
-        createClassSection)
+        createClassSection);
+
+router
+    .route('/createSubject')
+    .post(
+        authenticateUser,
+        checkUserPersmission(['subject.create']),
+        createSubject
+    );
+
+router
+    .route('/createClassSubject')
+    .post(
+        authenticateUser,
+        checkUserPersmission(['subject.create']),
+        createClassSubject
+    );
 
 export default router
