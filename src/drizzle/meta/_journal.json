@@ -204,6 +204,13 @@
       "when": 1764965884372,
       "tag": "0028_secret_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1765390266781,
+      "tag": "0029_unique_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

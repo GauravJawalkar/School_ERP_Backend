@@ -4,8 +4,8 @@ import { rolesTable } from "./roles.model";
 
 export const userRoleTable = pgTable('userRoleTable', {
     id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    userId: uuid('userId').notNull().references(() => usersTable.id),
-    roleId: integer('roleId').notNull().references(() => rolesTable.id),
+    userId: uuid('userId').notNull().references(() => usersTable.id, { onDelete: 'cascade' }),
+    roleId: integer('roleId').notNull().references(() => rolesTable.id, { onDelete: 'cascade' }),
     assignedAt: timestamp('assignedAt').defaultNow(),
-    assignedBy: uuid('assignedBy').references(() => usersTable.id)
+    assignedBy: uuid('assignedBy').references(() => usersTable.id, { onDelete: 'set null' }),
 })

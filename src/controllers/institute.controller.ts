@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
-import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, subjectsTable, userRoleTable, usersTable } from "../models";
+import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
@@ -347,4 +347,74 @@ const createClassSubject = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject }
+const allocateTeacherToSubject = async (req: Request, res: Response) => {
+    try {
+        const { academicYearId, classId, sectionId, subjectId, teacherId, instituteId } = req.body;
+
+        if (!academicYearId || !classId || !sectionId || !subjectId || !teacherId || !instituteId) {
+            return res.status(400).json({
+                message: "Please provide all the required fields",
+                status: 400
+            });
+        }
+
+        // Check if he/she is already a teacher
+        const [isTeacherCheck] = await db
+            .select()
+            .from(teacherProfileTable)
+            .where(
+                and(
+                    eq(teacherProfileTable.id, teacherId),
+                )
+            )
+
+        const [alreadyAllocated] = await db
+            .select()
+            .from(subjectAllocationsTable)
+            .where(
+                and(
+                    eq(subjectAllocationsTable.academicYearId, academicYearId),
+                    eq(subjectAllocationsTable.subjectId, subjectId),
+                    eq(subjectAllocationsTable.classId, classId),
+                    eq(subjectAllocationsTable.sectionId, sectionId),
+                    eq(subjectAllocationsTable.teacherId, teacherId)
+                )
+            ).limit(1);
+
+        if (alreadyAllocated) {
+            return res.status(400).json({
+                success: false,
+                message: "Teacher is already assigned to this section for another subject"
+            });
+        }
+
+        const [newAllocation] = await db
+            .insert(subjectAllocationsTable)
+            .values(
+                {
+                    academicYearId,
+                    classId,
+                    sectionId,
+                    subjectId,
+                    teacherId
+                }
+            ).returning();
+
+        if (!newAllocation) {
+            return res.status(400).json({
+                message: "Failed to allocate the teacher for this subject",
+                status: 400
+            })
+        }
+
+        return res.status(201).json({
+            message: "Teacher allocated successfully",
+            status: 201
+        });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error allocating teacher to subject", status: 500 })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject }

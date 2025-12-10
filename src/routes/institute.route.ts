@@ -1,5 +1,5 @@
 import Router from 'express'
-import { createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject } from '../controllers/institute.controller';
+import { allocateTeacherToSubject, createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject } from '../controllers/institute.controller';
 import { upload } from '../middlewares/multer.middleware';
 import { authenticateUser } from '../middlewares/authenticate.middleware';
 import { checkUserPersmission } from '../middlewares/checkPermission.middleware';
@@ -53,5 +53,13 @@ router
         checkUserPersmission(['subject.create']),
         createClassSubject
     );
+
+router
+    .route('/allocateTeacherToSubject')
+    .post(
+        authenticateUser,
+        checkUserPersmission(['user.assign_role']),
+        allocateTeacherToSubject
+    )
 
 export default router
