@@ -83,9 +83,10 @@ export const classSubjectsTable = pgTable('classSubjectsTable', {
 export const subjectAllocationsTable = pgTable('subjectAllocationsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
+    instituteId: integer('instituteId').references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
     classId: integer('classId').references(() => classesTable.id, { onDelete: 'cascade' }).notNull(),
     sectionId: integer('sectionId').references(() => sectionsTable.id, { onDelete: 'cascade' }).notNull(),
-    subjectId: integer('subjectId').references(() => subjectsTable.id, { onDelete: 'cascade' }).notNull(),
+    classSubjectId: integer('subjectId').references(() => classSubjectsTable.id, { onDelete: 'cascade' }).notNull(),
     teacherId: integer('teacherId').references(() => staffTable.id, { onDelete: 'cascade' })
 })
 

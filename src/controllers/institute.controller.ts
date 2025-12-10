@@ -349,9 +349,9 @@ const createClassSubject = async (req: Request, res: Response) => {
 
 const allocateTeacherToSubject = async (req: Request, res: Response) => {
     try {
-        const { academicYearId, classId, sectionId, subjectId, teacherId, instituteId } = req.body;
+        const { academicYearId, classId, sectionId, subjectId, staffId, instituteId } = req.body;
 
-        if (!academicYearId || !classId || !sectionId || !subjectId || !teacherId || !instituteId) {
+        if (!academicYearId || !classId || !sectionId || !subjectId || !staffId || !instituteId) {
             return res.status(400).json({
                 message: "Please provide all the required fields",
                 status: 400
@@ -364,9 +364,17 @@ const allocateTeacherToSubject = async (req: Request, res: Response) => {
             .from(teacherProfileTable)
             .where(
                 and(
-                    eq(teacherProfileTable.id, teacherId),
+                    eq(teacherProfileTable.staffId, staffId),
+                    eq(teacherProfileTable.instituteId, instituteId)
                 )
-            )
+            ).limit(1);
+
+        if (!isTeacherCheck) {
+            return res.status(400).json({
+                message: "Please check if the user to which subject is being assigned is a teacher and is enrolled in your institute only",
+                status: 400
+            })
+        }
 
         const [alreadyAllocated] = await db
             .select()
@@ -374,17 +382,17 @@ const allocateTeacherToSubject = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(subjectAllocationsTable.academicYearId, academicYearId),
-                    eq(subjectAllocationsTable.subjectId, subjectId),
+                    eq(subjectAllocationsTable.classSubjectId, subjectId),
                     eq(subjectAllocationsTable.classId, classId),
                     eq(subjectAllocationsTable.sectionId, sectionId),
-                    eq(subjectAllocationsTable.teacherId, teacherId)
+                    eq(subjectAllocationsTable.teacherId, staffId)
                 )
             ).limit(1);
 
         if (alreadyAllocated) {
             return res.status(400).json({
                 success: false,
-                message: "Teacher is already assigned to this section for another subject"
+                message: "This subject is already allocated to this teacher for this class and section"
             });
         }
 
@@ -393,10 +401,11 @@ const allocateTeacherToSubject = async (req: Request, res: Response) => {
             .values(
                 {
                     academicYearId,
+                    instituteId,
                     classId,
                     sectionId,
-                    subjectId,
-                    teacherId
+                    classSubjectId: subjectId,
+                    teacherId: staffId
                 }
             ).returning();
 

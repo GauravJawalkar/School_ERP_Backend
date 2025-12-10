@@ -1,0 +1,4 @@
+ALTER TABLE "subjectAllocationsTable" ADD COLUMN "instituteId" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "teacherProfileTable" ADD COLUMN "instituteId" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "subjectAllocationsTable" ADD CONSTRAINT "subjectAllocationsTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "teacherProfileTable" ADD CONSTRAINT "teacherProfileTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;

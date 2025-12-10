@@ -209,7 +209,8 @@ const createStaff = async (req: Request, res: Response) => {
             // Create teacher profile entry
             try {
                 await db.insert(teacherProfileTable).values({
-                    staffId: newStaff.id
+                    staffId: newStaff.id,
+                    instituteId: instituteId
                 })
             } catch (error) {
                 console.error("Error creating teacher profile: ", error);

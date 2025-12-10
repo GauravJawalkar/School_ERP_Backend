@@ -211,6 +211,20 @@
       "when": 1765390266781,
       "tag": "0029_unique_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1765392279980,
+      "tag": "0030_lush_echo",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1765394086397,
+      "tag": "0031_married_scourge",
+      "breakpoints": true
     }
   ]
 }
