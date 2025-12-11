@@ -18,9 +18,11 @@ import userRouter from './routes/auth.route';
 import schoolRouter from './routes/institute.route'
 import adminRouter from './routes/admin.routes'
 import enrollRouter from './routes/addmission.routes'
+import financeRouter from './routes/finance.routes'
 
 // Routes
 app.use('/api/v1/auth/', userRouter);
 app.use('/api/v1/institute', schoolRouter);
 app.use('/api/v1/admin', adminRouter);
-app.use('/api/v1/addmission', enrollRouter)
+app.use('/api/v1/addmission', enrollRouter);
+app.use('/api/v1/finance', financeRouter);

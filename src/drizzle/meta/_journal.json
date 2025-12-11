@@ -232,6 +232,13 @@
       "when": 1765474845861,
       "tag": "0032_happy_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1765477119618,
+      "tag": "0033_mixed_avengers",
+      "breakpoints": true
     }
   ]
 }
