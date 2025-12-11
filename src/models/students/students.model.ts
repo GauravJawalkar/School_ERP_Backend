@@ -1,11 +1,12 @@
 import { boolean, date, integer, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
-import { genderEnum, usersTable } from "../user/users.model";
+import { usersTable } from "../user/users.model";
 import { classesTable, sectionsTable } from "../acedemics/academics.model";
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 
 export const castCategoryEnum = pgEnum('category', ['GENERAL', 'OBC', 'SC/ST']);
 export const studentStatusEnum = pgEnum('status', ['ACTIVE', 'ALUMINI', 'WITHDRAWN', 'TRANSFRRED']);
 export const studentAttendanceStatus = pgEnum('status', ['PRESENT', 'ABSENT', 'LATE', 'LEAVE']);
+const genderEnum = pgEnum('gender', ['MALE', 'FEMALE', 'OTHER']);
 
 export const studentsTable = pgTable('studentsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
