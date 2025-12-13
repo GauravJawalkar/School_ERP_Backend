@@ -1,1 +1,0 @@
-ALTER TABLE "staffTable" ADD COLUMN "designation" varchar(100) NOT NULL;

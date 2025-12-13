@@ -1,1 +1,0 @@
-ALTER TABLE "classesTable" ALTER COLUMN "orderIndex" DROP NOT NULL;

@@ -1,1 +1,0 @@
-ALTER TABLE "studentEnrollmentTable" ALTER COLUMN "status" DROP DEFAULT;

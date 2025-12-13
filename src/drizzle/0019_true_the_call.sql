@@ -1,2 +1,0 @@
-ALTER TABLE "timeTableSlotsTable" ADD COLUMN "classId" integer NOT NULL;--> statement-breakpoint
-ALTER TABLE "timeTableSlotsTable" ADD CONSTRAINT "timeTableSlotsTable_classId_classesTable_id_fk" FOREIGN KEY ("classId") REFERENCES "public"."classesTable"("id") ON DELETE cascade ON UPDATE no action;
