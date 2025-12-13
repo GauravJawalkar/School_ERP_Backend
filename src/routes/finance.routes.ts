@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
-import { createFeeHead } from "../controllers/finance.controller";
+import { createFeeHead, createFeeStructure } from "../controllers/finance.controller";
 
 const router = Router();
 
@@ -13,5 +13,13 @@ router
         checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
         checkUserPersmission(['fees.create']),
         createFeeHead);
+
+router
+    .route('/createFeeStructure')
+    .post(
+        authenticateUser,
+        checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
+        checkUserPersmission(['fees.create']),
+        createFeeStructure);
 
 export default router;
