@@ -128,7 +128,16 @@ const createFeeStructure = async (req: Request, res: Response) => {
 // After enrollment of student, auto-assign compulsory fees
 const assignFees = async (req: Request, res: Response) => {
     try {
-        const { } = req.body;
+        const { studentId, instituteId, feeStructureId, customAmount, discountPercentage, discountReason, isWaived, waivedReason, effectiveAmount, assignedBy, } = req.body;
+
+        if (!studentId || !instituteId || !feeStructureId || !effectiveAmount || !assignedBy) {
+            return res.status(400).json({
+                message: "Please provide all the required fields",
+                status: 400
+            })
+        }
+
+
 
     } catch (error) {
         return res.status(500).json({
