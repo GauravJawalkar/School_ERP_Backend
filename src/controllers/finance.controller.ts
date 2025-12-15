@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
 import { feeHeadsTable, feeStructuresTable, studentFeeAssignmentsTable, studentsTable } from "../models";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 // This controller creates a type of fee for a particular institute eg: Tution fee , transport fee, etc
 const createFeeHead = async (req: Request, res: Response) => {
@@ -128,7 +128,9 @@ const createFeeStructure = async (req: Request, res: Response) => {
 // After enrollment of student, auto-assign compulsory fees -> DONE (Keeping this one incase of manual assignment)
 const assignFees = async (req: Request, res: Response) => {
     try {
-        const { studentId, classId, instituteId, discountPercentage, discountReason, isWaived, waivedReason, academicYearId } = req.body;
+        const { classId, instituteId, discountPercentage, discountReason, isWaived, waivedReason, academicYearId } = req.body;
+
+        const studentId = Number(req.params.id);
 
         // req.user may be a string (user id) or a JwtPayload object; normalize to a string id
         const assignedBy = typeof req.user === "string" ? req.user : (req.user as { id?: string }).id;
