@@ -125,7 +125,7 @@ const createFeeStructure = async (req: Request, res: Response) => {
     }
 }
 
-// After enrollment of student, auto-assign compulsory fees
+// After enrollment of student, auto-assign compulsory fees -> DONE (Keeping this one incase of manual assignment)
 const assignFees = async (req: Request, res: Response) => {
     try {
         const { studentId, classId, instituteId, discountPercentage, discountReason, isWaived, waivedReason, academicYearId } = req.body;
@@ -216,7 +216,7 @@ const assignFees = async (req: Request, res: Response) => {
                 instituteId,
                 feeStructureId: feeStructure.id,
                 customAmount: null, // Can be set for individual fee heads if needed
-                discountPercentage: discountPercentage.toString(),
+                discountPercentage: null,
                 discountReason,
                 isWaived,
                 waivedReason,
@@ -244,9 +244,11 @@ const assignFees = async (req: Request, res: Response) => {
         })
 
     } catch (error) {
+        console.error('Error is : ', error);
         return res.status(500).json({
             message: "Internal Server Error assigning fees to student",
-            status: 500
+            status: 500,
+            error: error
         })
     }
 }

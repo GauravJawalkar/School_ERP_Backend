@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { admissionsTable, rolesTable, studentsTable, userRoleTable, usersTable } from "../models";
+import { admissionsTable, feeStructuresTable, rolesTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import bcrypt from 'bcrypt'
 import type { TokenUser } from "../interface";
@@ -58,8 +58,8 @@ const createAddmission = async (req: Request, res: Response) => {
     }
 }
 
+// TODO : For approving addmission application just check if the fee is 30% fee is paid or not.
 const approveAddmission = async (req: Request, res: Response) => {
-    // TODO : For approving addmission application just check if the fee is 30% fee is paid or not.
     try {
         const addmissionId = Number(req.params.id);
         const { firstName, lastName, instituteId, email, phone, gender, DOB } = req.body;
@@ -67,6 +67,10 @@ const approveAddmission = async (req: Request, res: Response) => {
 
         if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
+        }
+
+        if (phone.trim().length > 10) {
+            return res.status(400).json({ message: "You entered more than 10 digits for the phone number", status: 400 })
         }
 
         const [exstingUser] = await db
@@ -192,8 +196,88 @@ const approveAddmission = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Failed to create an entry in the studentTable', status: 400 })
         }
 
-        // Admission → Approval → User Creation → Enrollment → Login Access
+        // Assign Fees
+        // Fetch all COMPULSORY fee structures for this class and academic year
+        const feeStructures = await db
+            .select()
+            .from(feeStructuresTable)
+            .where(
+                and(
+                    eq(feeStructuresTable.classId, approveAddmission.classId),
+                    eq(feeStructuresTable.academicYearId, approveAddmission.academicYearId),
+                    eq(feeStructuresTable.instituteId, instituteId),
+                    eq(feeStructuresTable.isCompulsory, true)
+                )
+            );
 
+        if (feeStructures.length === 0) {
+            return res.status(404).json({
+                message: "No compulsory fee structures found for this class",
+                status: 404
+            });
+        }
+
+        const alreadyAssigned = await db
+            .select()
+            .from(studentFeeAssignmentsTable)
+            .where(
+                and(
+                    eq(studentFeeAssignmentsTable.studentId, newStudentRecord.id),
+                    eq(studentFeeAssignmentsTable.instituteId, instituteId),
+                )
+            ).limit(1);
+
+        if (alreadyAssigned.length > 0) {
+            return res.status(400).json({
+                message: "Fees are already assigned to this student",
+                status: 400,
+                existingAssignments: alreadyAssigned.length
+            })
+        }
+
+        // Prepare assignments for all compulsory fees
+        const assignments = feeStructures.map(feeStructure => {
+            const baseAmount = parseFloat(feeStructure.amount);
+            const discount = parseFloat("0");
+
+            // Calculate effective amount
+            let effectiveAmount: number;
+            const isWaived = false;
+            if (isWaived) {
+                effectiveAmount = 0; // Fully waived
+            } else {
+                // Apply discount: amount - (amount * discount / 100)
+                effectiveAmount = baseAmount - (baseAmount * discount / 100);
+            }
+
+            return {
+                studentId: newStudentRecord.id,
+                instituteId,
+                feeStructureId: feeStructure.id,
+                customAmount: null, // Can be set for individual fee heads if needed
+                discountPercentage: null,
+                discountReason: 'none',
+                isWaived,
+                waivedReason: 'none',
+                effectiveAmount: effectiveAmount.toFixed(2),
+                assignedBy
+            };
+        });
+
+        // Insert all fee assignments in one transaction
+        const assignedFees = await db
+            .insert(studentFeeAssignmentsTable)
+            .values(assignments)
+            .returning();
+
+        if (!assignedFees || assignedFees.length === 0) {
+            return res.status(400).json({
+                message: "Failed to assign fees to the student",
+                status: 400
+            });
+        }
+
+        // Admission → Approval → User Creation → Enrollment → Assign Fees → Login Access
         const sendCredentialsOnMail = await sendFirstTimeCredentialsEmail(
             {
                 parentEmail: email,
@@ -209,7 +293,7 @@ const approveAddmission = async (req: Request, res: Response) => {
 
         return res.status(200).json({
             success: true,
-            message: "Admission approved ,user created and credentials sent to parent email",
+            message: "Admission approved ,user created,fees assigned and credentials sent to parent email",
             data: newUser
         });
 

@@ -23,7 +23,7 @@ router
         createFeeStructure);
 
 router
-    .route('/assignFees')
+    .route('/assignFees/')
     .post(
         authenticateUser,
         checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
