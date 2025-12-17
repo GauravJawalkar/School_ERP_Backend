@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { feeHeadsTable, feeStructuresTable, studentFeeAssignmentsTable, studentsTable } from "../models";
+import { feeHeadsTable, feeInstallmentsTable, feeStructuresTable, studentFeeAssignmentsTable, studentsTable } from "../models";
 import { and, eq } from "drizzle-orm";
 
 // This controller creates a type of fee for a particular institute eg: Tution fee , transport fee, etc
@@ -255,4 +255,80 @@ const assignFees = async (req: Request, res: Response) => {
     }
 }
 
-export { createFeeHead, createFeeStructure, assignFees }
+const createFeeInstallment = async (req: Request, res: Response,) => {
+    try {
+        const { academicYearId, name, installmentNumber, dueDate, lateFeeStartDate, finePerDay, instituteId } = req.body;
+
+        if (!academicYearId || !name || !installmentNumber || !dueDate || !finePerDay || !instituteId) {
+            return res.status(400).json({
+                message: "Please provide the required fields",
+                status: 400
+            })
+        }
+
+        const [existingInstallment] = await db
+            .select()
+            .from(feeInstallmentsTable)
+            .where(
+                and(
+                    eq(feeInstallmentsTable.academicYearId, academicYearId),
+                    eq(feeInstallmentsTable.installmentName, name)
+                )
+            ).limit(1);
+
+        if (existingInstallment) {
+            return res.status(400).json({
+                message: "The installment already exist for this academic year",
+                status: 400
+            })
+        }
+
+        const [newFeeInstallment] = await db
+            .insert(feeInstallmentsTable)
+            .values({
+                academicYearId: academicYearId,
+                instituteId,
+                installmentName: name,
+                installmentNumber,
+                dueDate,
+                finePerDay,
+                lateFeeStartDate
+            }).returning();
+
+        if (!newFeeInstallment) {
+            return res.status(400).json({
+                message: "Failed to create the fee installment",
+                status: 400
+            })
+        }
+
+        return res.status(201).json({
+            message: "Fee Installment created Successfully",
+            status: 201
+        })
+
+    } catch (error) {
+        console.log("Error creating installment : ", error)
+        return res.status(500).json({
+            message: "Internal server error creating installment",
+            status: 500
+        })
+    }
+}
+
+const generateInvoice = async (req: Request, res: Response) => {
+    try {
+        const { studentId, installmentId } = req.body;
+
+
+
+    } catch (error) {
+        console.error('Error generating Invoice : ', error);
+        return res.status(500).json({
+            message: "Internal Server Error generating Invoice",
+            status: 500
+        })
+    }
+}
+
+export { createFeeHead, createFeeStructure, assignFees, generateInvoice, createFeeInstallment }
