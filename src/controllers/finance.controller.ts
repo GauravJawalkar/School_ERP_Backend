@@ -257,6 +257,7 @@ const assignFees = async (req: Request, res: Response) => {
     }
 }
 
+// This controller creates feeInstallments like quartely, yearly,halfYear for specific institute
 const createFeeInstallment = async (req: Request, res: Response,) => {
     try {
         const { academicYearId, name, installmentNumber, dueDate, lateFeeStartDate, finePerDay, instituteId } = req.body;
@@ -318,6 +319,7 @@ const createFeeInstallment = async (req: Request, res: Response,) => {
     }
 }
 
+// Generate invoices for students as per their installments (quartely, yearly,halfYear)
 const generateInvoice = async (req: Request, res: Response) => {
     try {
         const { studentId, installmentId } = req.body;
