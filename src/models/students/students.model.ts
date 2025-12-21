@@ -12,7 +12,7 @@ export const studentsTable = pgTable('studentsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     instituteId: integer('instituteId').references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
     admissionNo: integer('addmissionNo'),
-    userId: uuid('userId').references(() => usersTable.id, { onDelete: 'cascade' }),
+    userId: uuid('userId').references(() => usersTable.id, { onDelete: 'cascade' }).notNull(),
     firstName: varchar('firstName', { length: 50 }).notNull(),
     lastName: varchar('lastName', { length: 50 }).notNull(),
     DOB: date('DOB').notNull(),

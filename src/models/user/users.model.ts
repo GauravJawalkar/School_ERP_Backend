@@ -1,9 +1,11 @@
-import { pgTable, integer, varchar, uuid, pgEnum, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, integer, varchar, uuid, pgEnum, boolean, timestamp, text } from "drizzle-orm/pg-core";
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 import { studentsTable } from "../students/students.model";
 
 export const genderEnum = pgEnum('gender', ['MALE', 'FEMALE', 'OTHER']);
 export const relationEnum = pgEnum('relation', ['FATHER', 'MOTHER', 'GUARDIAN']);
+export const primaryContactEnum = pgEnum('primaryContact', ['FATHER', 'MOTHER', 'GUARDIAN'])
+export const occupationEnum = pgEnum('occupation', ['BUSINESS', 'JOB', 'HOUSE_WIFE'])
 
 const usersTable = pgTable("users", {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -31,14 +33,39 @@ const resetPasswordTable = pgTable("resetPasswordTable", {
 
 const parentsTable = pgTable("parentsTable", {
     id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
-    userId: uuid("userId").references(() => usersTable.id, { onDelete: 'set null' }).notNull(),
+    studentId: uuid("studentId").references(() => studentsTable.id, { onDelete: 'cascade' }).notNull(),
+    instituteId: integer('instituteId').references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
+    // Father Details
     fatherName: varchar("fatherName", { length: 100 }).notNull(),
+    fatherOccupation: occupationEnum('fatherOccupation'),
+    fatherQualification: varchar('fatherQualification', { length: 100 }),
+    fatherPhone: varchar('fatherPhone', { length: 15 }),
+    fatherEmail: varchar('fatherEmail', { length: 100 }),
+    fatherAadhar: varchar('fatherAadhar', { length: 12 }),
     motherName: varchar("motherName", { length: 100 }).notNull(),
-    fatherContact: varchar("fatherContactNo", { length: 20 }).notNull(),
-    motherContact: varchar("motherContactNo", { length: 20 }).notNull(),
-    email: varchar("email", { length: 50 }),
+    // Mother Details
+    motherOccupation: varchar('motherOccupation', { length: 100 }),
+    motherQualification: occupationEnum('motherOccupation'),
+    motherPhone: varchar('motherPhone', { length: 15 }),
+    motherEmail: varchar('motherEmail', { length: 100 }),
+    motherAadhar: varchar('motherAadhar', { length: 12 }),
+    // Guardian Details if any
+    guardianName: varchar('guardianName', { length: 100 }),
+    guardianRelation: varchar('guardianRelation', { length: 50 }),
+    guardianPhone: varchar('guardianPhone', { length: 15 }),
+    guardianEmail: varchar('guardianEmail', { length: 100 }),
+    guardianOccupation: varchar('guardianOccupation', { length: 100 }),
+    // Important details for school
+    primaryContactPerson: primaryContactEnum('primaryContactPerson'),
+    primaryPhone: varchar('primaryPhone', { length: 15 }).notNull(),
     whatsAppNo: varchar("whatsAppNo", { length: 20 }),
-    address: varchar("address", { length: 200 }).notNull()
+    // Address Details
+    address: text('address').notNull(),
+    city: varchar('city', { length: 100 }),
+    state: varchar('state', { length: 100 }),
+    pincode: varchar('pincode', { length: 10 }),
+    createdAt: timestamp('createdAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
 })
 
 const studentParentMapTable = pgTable("studentParentMapTable", {
