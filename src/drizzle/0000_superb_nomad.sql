@@ -1,4 +1,6 @@
 CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'OTHER');--> statement-breakpoint
+CREATE TYPE "public"."occupation" AS ENUM('BUSINESS', 'JOB', 'HOUSE_WIFE');--> statement-breakpoint
+CREATE TYPE "public"."primaryContact" AS ENUM('FATHER', 'MOTHER', 'GUARDIAN');--> statement-breakpoint
 CREATE TYPE "public"."relation" AS ENUM('FATHER', 'MOTHER', 'GUARDIAN');--> statement-breakpoint
 CREATE TYPE "public"."applicationStatus" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'INQUIRY');--> statement-breakpoint
 CREATE TYPE "public"."classSectionName" AS ENUM('A', 'B', 'C', 'D', 'E', 'F');--> statement-breakpoint
@@ -13,14 +15,33 @@ CREATE TYPE "public"."paymentMode" AS ENUM('CASH', 'UPI', 'CHEQUE', 'BANK_TRANSF
 CREATE TYPE "public"."transactionStatus" AS ENUM('SUCCESS', 'PENDING', 'FAILED', 'REFUNDED');--> statement-breakpoint
 CREATE TABLE "parentsTable" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "parentsTable_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
-	"userId" uuid NOT NULL,
+	"studentId" integer NOT NULL,
+	"instituteId" integer NOT NULL,
 	"fatherName" varchar(100) NOT NULL,
+	"fatherOccupation" "occupation",
+	"fatherQualification" varchar(100),
+	"fatherPhone" varchar(15),
+	"fatherEmail" varchar(100),
+	"fatherAadhar" varchar(12),
 	"motherName" varchar(100) NOT NULL,
-	"fatherContactNo" varchar(20) NOT NULL,
-	"motherContactNo" varchar(20) NOT NULL,
-	"email" varchar(50),
+	"motherOccupation" "occupation",
+	"motherPhone" varchar(15),
+	"motherEmail" varchar(100),
+	"motherAadhar" varchar(12),
+	"guardianName" varchar(100),
+	"guardianRelation" varchar(50),
+	"guardianPhone" varchar(15),
+	"guardianEmail" varchar(100),
+	"guardianOccupation" varchar(100),
+	"primaryContactPerson" "primaryContact",
+	"primaryPhone" varchar(15) NOT NULL,
 	"whatsAppNo" varchar(20),
-	"address" varchar(200) NOT NULL
+	"address" text NOT NULL,
+	"city" varchar(100),
+	"state" varchar(100),
+	"pincode" varchar(10),
+	"createdAt" timestamp DEFAULT now() NOT NULL,
+	"updatedAt" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "resetPasswordTable" (
@@ -249,7 +270,7 @@ CREATE TABLE "studentsTable" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "studentsTable_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"instituteId" integer NOT NULL,
 	"addmissionNo" integer,
-	"userId" uuid,
+	"userId" uuid NOT NULL,
 	"firstName" varchar(50) NOT NULL,
 	"lastName" varchar(50) NOT NULL,
 	"DOB" date NOT NULL,
@@ -371,7 +392,8 @@ CREATE TABLE "transactionsTable" (
 	CONSTRAINT "transactionsTable_receiptNo_unique" UNIQUE("receiptNo")
 );
 --> statement-breakpoint
-ALTER TABLE "parentsTable" ADD CONSTRAINT "parentsTable_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "parentsTable" ADD CONSTRAINT "parentsTable_studentId_studentsTable_id_fk" FOREIGN KEY ("studentId") REFERENCES "public"."studentsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "parentsTable" ADD CONSTRAINT "parentsTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resetPasswordTable" ADD CONSTRAINT "resetPasswordTable_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentParentMapTable" ADD CONSTRAINT "studentParentMapTable_studentId_studentsTable_id_fk" FOREIGN KEY ("studentId") REFERENCES "public"."studentsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentParentMapTable" ADD CONSTRAINT "studentParentMapTable_parentId_parentsTable_id_fk" FOREIGN KEY ("parentId") REFERENCES "public"."parentsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

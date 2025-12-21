@@ -1,5 +1,5 @@
 {
-  "id": "5c368303-bc99-4c9c-b868-dd387b14a53f",
+  "id": "615b2ece-10ea-4632-939c-063b8e3248c4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -25,9 +25,15 @@
             "cycle": false
           }
         },
-        "userId": {
-          "name": "userId",
-          "type": "uuid",
+        "studentId": {
+          "name": "studentId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instituteId": {
+          "name": "instituteId",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -37,29 +43,110 @@
           "primaryKey": false,
           "notNull": true
         },
+        "fatherOccupation": {
+          "name": "fatherOccupation",
+          "type": "occupation",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fatherQualification": {
+          "name": "fatherQualification",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fatherPhone": {
+          "name": "fatherPhone",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fatherEmail": {
+          "name": "fatherEmail",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fatherAadhar": {
+          "name": "fatherAadhar",
+          "type": "varchar(12)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "motherName": {
           "name": "motherName",
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
         },
-        "fatherContactNo": {
-          "name": "fatherContactNo",
-          "type": "varchar(20)",
+        "motherOccupation": {
+          "name": "motherOccupation",
+          "type": "occupation",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "motherContactNo": {
-          "name": "motherContactNo",
-          "type": "varchar(20)",
+        "motherPhone": {
+          "name": "motherPhone",
+          "type": "varchar(15)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "email": {
-          "name": "email",
+        "motherEmail": {
+          "name": "motherEmail",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "motherAadhar": {
+          "name": "motherAadhar",
+          "type": "varchar(12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guardianName": {
+          "name": "guardianName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guardianRelation": {
+          "name": "guardianRelation",
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false
+        },
+        "guardianPhone": {
+          "name": "guardianPhone",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guardianEmail": {
+          "name": "guardianEmail",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guardianOccupation": {
+          "name": "guardianOccupation",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primaryContactPerson": {
+          "name": "primaryContactPerson",
+          "type": "primaryContact",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primaryPhone": {
+          "name": "primaryPhone",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": true
         },
         "whatsAppNo": {
           "name": "whatsAppNo",
@@ -69,24 +156,69 @@
         },
         "address": {
           "name": "address",
-          "type": "varchar(200)",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "city": {
+          "name": "city",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pincode": {
+          "name": "pincode",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "parentsTable_userId_users_id_fk": {
-          "name": "parentsTable_userId_users_id_fk",
+        "parentsTable_studentId_studentsTable_id_fk": {
+          "name": "parentsTable_studentId_studentsTable_id_fk",
           "tableFrom": "parentsTable",
-          "tableTo": "users",
+          "tableTo": "studentsTable",
           "columnsFrom": [
-            "userId"
+            "studentId"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "parentsTable_instituteId_instituteProfileTable_id_fk": {
+          "name": "parentsTable_instituteId_instituteProfileTable_id_fk",
+          "tableFrom": "parentsTable",
+          "tableTo": "instituteProfileTable",
+          "columnsFrom": [
+            "instituteId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2141,7 +2273,7 @@
           "name": "userId",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "firstName": {
           "name": "firstName",
@@ -3278,6 +3410,24 @@
         "MALE",
         "FEMALE",
         "OTHER"
+      ]
+    },
+    "public.occupation": {
+      "name": "occupation",
+      "schema": "public",
+      "values": [
+        "BUSINESS",
+        "JOB",
+        "HOUSE_WIFE"
+      ]
+    },
+    "public.primaryContact": {
+      "name": "primaryContact",
+      "schema": "public",
+      "values": [
+        "FATHER",
+        "MOTHER",
+        "GUARDIAN"
       ]
     },
     "public.relation": {

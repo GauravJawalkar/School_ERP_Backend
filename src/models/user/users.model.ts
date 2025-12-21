@@ -33,7 +33,7 @@ const resetPasswordTable = pgTable("resetPasswordTable", {
 
 const parentsTable = pgTable("parentsTable", {
     id: integer("id").generatedAlwaysAsIdentity().primaryKey(),
-    studentId: uuid("studentId").references(() => studentsTable.id, { onDelete: 'cascade' }).notNull(),
+    studentId: integer("studentId").references(() => studentsTable.id, { onDelete: 'cascade' }).notNull(),
     instituteId: integer('instituteId').references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
     // Father Details
     fatherName: varchar("fatherName", { length: 100 }).notNull(),
