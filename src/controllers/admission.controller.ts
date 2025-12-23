@@ -58,7 +58,7 @@ const createAddmission = async (req: Request, res: Response) => {
     }
 }
 
-// TODO : For approving addmission application just check if the fee is 30% fee is paid or not.
+// When approving the addmission the parent email is used to create user account for the student. So need to add parents Details in the addmission creation so that the approved student parent will get linked in the parentsTable
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
