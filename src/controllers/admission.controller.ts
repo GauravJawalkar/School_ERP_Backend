@@ -62,10 +62,10 @@ const createAddmission = async (req: Request, res: Response) => {
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
-        const { firstName, lastName, instituteId, email, phone, gender, DOB, fatherName, motherName, primaryPhone, address } = req.body;
+        const { firstName, lastName, instituteId, email, phone, gender, DOB, fatherName, motherName, address } = req.body;
         const roleName = "STUDENT";
 
-        if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB || !fatherName || !motherName || !primaryPhone || !address) {
+        if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB || !fatherName || !motherName || !address) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
@@ -99,19 +99,6 @@ const approveAddmission = async (req: Request, res: Response) => {
 
         if (alreadyApprovedAddmission) {
             return res.status(400).json({ message: "Addmission is already approved", status: 400 });
-        }
-
-        const [approveAddmission] = await db
-            .update(admissionsTable)
-            .set({
-                applicationStatus: 'APPROVED'
-            })
-            .where(
-                eq(admissionsTable.id, addmissionId)
-            ).returning();
-
-        if (!approveAddmission) {
-            return res.status(400).json({ message: 'Failed to approve the addmission', status: 400 });
         }
 
         // Check if role exists in database roles table
@@ -174,6 +161,20 @@ const approveAddmission = async (req: Request, res: Response) => {
                 .set({ userId: newUser.id })
                 .where(eq(admissionsTable.id, addmissionId)).returning();
         }
+
+        const [approveAddmission] = await db
+            .update(admissionsTable)
+            .set({
+                applicationStatus: 'APPROVED'
+            })
+            .where(
+                eq(admissionsTable.id, addmissionId)
+            ).returning();
+
+        if (!approveAddmission) {
+            return res.status(400).json({ message: 'Failed to approve the addmission', status: 400 });
+        }
+
 
         // Now the user is created and role is assigned as student successfully, so now add the entry in students table
 
@@ -292,19 +293,22 @@ const approveAddmission = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Parent already exist for this student", status: 400 });
         }
 
-        const [parentsDetails] = await db
+        const [parentsRecord] = await db
             .insert(parentsTable)
             .values({
                 studentId: newStudentRecord?.id,
                 instituteId,
                 fatherName,
                 motherName,
-                primaryPhone,
+                primaryPhone: phone,
                 address
             }).returning();
 
-        if (!parentsDetails) {
-            return res.status(400).json({ message: "Failed to update the parents details", status: 400 });
+        if (!parentsRecord) {
+            // ROLLBACK: Delete student and user
+            await db.delete(studentsTable).where(eq(studentsTable.id, newStudentRecord.id));
+            await db.delete(usersTable).where(eq(usersTable.id, newUser.id));
+            return res.status(400).json({ message: "Failed to create parent record. Admission not approved.", status: 400 });
         }
 
         // Admission → Approval → User Creation → Enrollment → Assign Fees → ParentTableEntry →Login Access
@@ -319,6 +323,12 @@ const approveAddmission = async (req: Request, res: Response) => {
 
         if (!sendCredentialsOnMail.success) {
             console.warn("Email sending failed but admission approved:", sendCredentialsOnMail.message);
+            return res.status(200).json({
+                "status": "APPROVED",
+                "message": "Admission approved successfully",
+                "emailStatus": "FAILED",
+                "warning": "Email notification could not be sent. You may resend it later."
+            })
         }
 
         return res.status(200).json({

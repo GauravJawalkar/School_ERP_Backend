@@ -14,7 +14,7 @@ const usersTable = pgTable("users", {
     instituteId: integer('instituteId').notNull().references(() => instituteProfileTable.id),
     profileImage: varchar("profileImage"),
     email: varchar("email", { length: 255 }).notNull().unique(),
-    phone: varchar("phone", { length: 10 }).notNull().unique(),
+    phone: varchar("phone", { length: 10 }).notNull(),
     gender: genderEnum("gender").notNull(),
     password_hash: varchar("password").notNull(),
     isActive: boolean('is_active').notNull().default(true),
@@ -45,7 +45,7 @@ const parentsTable = pgTable("parentsTable", {
     motherName: varchar("motherName", { length: 100 }).notNull(),
     // Mother Details
     motherOccupation: varchar('motherOccupation', { length: 100 }),
-    motherQualification: occupationEnum('motherOccupation'),
+    motherQualification: occupationEnum('motherQualification'),
     motherPhone: varchar('motherPhone', { length: 15 }),
     motherEmail: varchar('motherEmail', { length: 100 }),
     motherAadhar: varchar('motherAadhar', { length: 12 }),
