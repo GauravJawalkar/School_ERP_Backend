@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { admissionsTable, feeStructuresTable, rolesTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable } from "../models";
+import { admissionsTable, feeStructuresTable, parentsTable, rolesTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import bcrypt from 'bcrypt'
 import type { TokenUser } from "../interface";
@@ -62,10 +62,10 @@ const createAddmission = async (req: Request, res: Response) => {
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
-        const { firstName, lastName, instituteId, email, phone, gender, DOB } = req.body;
+        const { firstName, lastName, instituteId, email, phone, gender, DOB, fatherName, motherName, primaryPhone, address } = req.body;
         const roleName = "STUDENT";
 
-        if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB) {
+        if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB || !fatherName || !motherName || !primaryPhone || !address) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
@@ -277,7 +277,37 @@ const approveAddmission = async (req: Request, res: Response) => {
             });
         }
 
-        // Admission → Approval → User Creation → Enrollment → Assign Fees → Login Access
+        // As we get the fees now add the parents details entry in the parentsTable
+        const [checkIfParentExists] = await db
+            .select()
+            .from(parentsTable)
+            .where(
+                and(
+                    eq(parentsTable.studentId, newStudentRecord.id),
+                    eq(parentsTable.fatherName, fatherName)
+                )
+            ).limit(1);
+
+        if (checkIfParentExists) {
+            return res.status(400).json({ message: "Parent already exist for this student", status: 400 });
+        }
+
+        const [parentsDetails] = await db
+            .insert(parentsTable)
+            .values({
+                studentId: newStudentRecord?.id,
+                instituteId,
+                fatherName,
+                motherName,
+                primaryPhone,
+                address
+            }).returning();
+
+        if (!parentsDetails) {
+            return res.status(400).json({ message: "Failed to update the parents details", status: 400 });
+        }
+
+        // Admission → Approval → User Creation → Enrollment → Assign Fees → ParentTableEntry →Login Access
         const sendCredentialsOnMail = await sendFirstTimeCredentialsEmail(
             {
                 parentEmail: email,
