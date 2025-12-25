@@ -58,7 +58,6 @@ const createAddmission = async (req: Request, res: Response) => {
     }
 }
 
-// When approving the addmission the parent email is used to create user account for the student. So need to add parents Details in the addmission creation so that the approved student parent will get linked in the parentsTable
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
@@ -370,8 +369,30 @@ const deleteAddmission = async (req: Request, res: Response) => {
     }
 }
 
+// This will get all approved admissions for an institute in a particular academic year
 const getAllAddmissions = async (req: Request, res: Response) => {
     try {
+        const instituteId = Number(req.params.instituteId);
+        const yearId = Number(req.params.yearId);
+
+        if (!instituteId || !yearId) {
+            return res.status(400).json({ message: 'Please provide required fields', status: 400 });
+        }
+        const allAdmissions = await db
+            .select()
+            .from(admissionsTable)
+            .where(and(
+                eq(admissionsTable.instituteId, instituteId),
+                eq(admissionsTable.applicationStatus, 'APPROVED'),
+                eq(admissionsTable.academicYearId, yearId)
+            ));
+
+        return res.status(200).json({
+            message: `All Admissions for instituteId: ${instituteId}`,
+            data: allAdmissions,
+            status: 200
+        })
+
 
     } catch (error) {
         console.log("Error getting all addmissions: ", error);
