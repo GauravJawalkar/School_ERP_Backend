@@ -406,6 +406,39 @@ const getAllAddmissions = async (req: Request, res: Response) => {
 const getAddmission = async (req: Request, res: Response) => {
     try {
 
+        const addmissionId = Number(req.params.addmissionId);
+        const instituteId = Number(req.params.instituteId);
+
+        if (!addmissionId || !instituteId) {
+            return res.status(400).json({
+                message: 'Please provide required fields',
+                status: 400
+            });
+        }
+
+        const [addmission] = await db
+            .select()
+            .from(admissionsTable)
+            .where(
+                and(
+                    eq(admissionsTable.id, addmissionId),
+                    eq(admissionsTable.instituteId, instituteId),
+                )
+            ).limit(1);
+
+        if (!addmission) {
+            return res.status(400).json({
+                message: "No addmission for this id",
+                status: 400
+            })
+        }
+
+        return res.status(200).json({
+            message: "Addmission found",
+            data: addmission,
+            status: 200
+        })
+
     } catch (error) {
         console.log("Error getting specific addmission: ", error);
         return res.status(500).json({
