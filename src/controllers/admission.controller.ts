@@ -406,8 +406,8 @@ const getAllAddmissions = async (req: Request, res: Response) => {
 const getAddmission = async (req: Request, res: Response) => {
     try {
 
-        const addmissionId = Number(req.params.addmissionId);
         const instituteId = Number(req.params.instituteId);
+        const addmissionId = Number(req.params.addmissionId);
 
         if (!addmissionId || !instituteId) {
             return res.status(400).json({

@@ -3,7 +3,6 @@ import { approveAddmission, createAddmission, getAddmission, getAllAddmissions }
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
-import { authenticatedRole } from "drizzle-orm/neon";
 
 const router = Router();
 
@@ -30,10 +29,9 @@ router
         getAllAddmissions);
 
 router
-    .route('/:instituteId/:addmissionId')
+    .route('/getAddmission/:instituteId/:addmissionId')
     .get(
         authenticateUser,
-        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
         checkUserPersmission(['admission.view']),
         getAddmission
     )
