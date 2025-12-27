@@ -345,8 +345,57 @@ const approveAddmission = async (req: Request, res: Response) => {
     }
 }
 
+// update the addmission status
 const updateAddmission = async (req: Request, res: Response) => {
     try {
+        const { status, addmissionId, instituteId } = req.body;
+
+        if (!status || !addmissionId || !instituteId) {
+            return res.status(400).json({
+                message: "Please provide required fields",
+                status: 400
+            })
+        }
+
+        const [addmission] = await db
+            .select()
+            .from(admissionsTable)
+            .where(
+                and(
+                    eq(admissionsTable.id, addmissionId),
+                    eq(admissionsTable.instituteId, instituteId)
+                )
+            ).limit(1);
+
+        if (!addmission) {
+            return res.status(404).json({
+                message: "Addmission with the admissionId not found in this institute",
+                status: 404
+            })
+        }
+
+        const [updateAddmissionStatus] = await db
+            .update(admissionsTable)
+            .set({
+                applicationStatus: status
+            }).returning({
+                admissionId: admissionsTable.id,
+                instituteId: admissionsTable.instituteId,
+                status: admissionsTable.applicationStatus
+            });
+
+        if (!updateAddmissionStatus) {
+            return res.status(400).json({
+                message: "failed to update the addmission application status",
+                status: 400
+            })
+        }
+
+        return res.json(200).json({
+            message: "Admission status updated successfully",
+            status: 200,
+            data: updateAddmissionStatus
+        })
 
     } catch (error) {
         console.log("Error updating addmission: ", error);
@@ -357,8 +406,66 @@ const updateAddmission = async (req: Request, res: Response) => {
     }
 }
 
+// Delete only the admissions that are PENDING/REJECTED/INQUIRY
 const deleteAddmission = async (req: Request, res: Response) => {
     try {
+        const addmissionId = Number(req.params.addmissionId);
+        const instituteId = Number(req.params.instituteId);
+
+        if (!addmissionId || !instituteId) {
+            return res.status(400).json({
+                message: "Please provide valid fields",
+                status: 400
+            })
+        }
+
+        const [addmission] = await db
+            .select()
+            .from(admissionsTable)
+            .where(
+                and(
+                    eq(admissionsTable.id, addmissionId),
+                    eq(admissionsTable.instituteId, instituteId)
+                )
+            ).limit(1);
+
+        if (!addmission) {
+            return res.status(404).json({
+                message: "Addmission not found",
+                status: 404
+            })
+        }
+
+        const status = addmission.applicationStatus;
+
+        if (status === "APPROVED") {
+            return res.status(400).json({
+                message: "This admission is already approved can't delete this. Unenroll the admission first",
+                status: 400
+            })
+        }
+
+        const [deleteAddmission] = await db
+            .delete(admissionsTable)
+            .where(
+                and(
+                    eq(admissionsTable.id, addmissionId),
+                    eq(admissionsTable.instituteId, instituteId)
+                )
+            ).returning();
+
+        if (!deleteAddmission) {
+            return res.status(400).json({
+                message: "Failed to delete the addmission",
+                status: 400
+            })
+        }
+
+        return res.status(200).json({
+            message: `Admission entry deleted with status : ${status}`,
+            status: 200
+        })
+
 
     } catch (error) {
         console.log("Error deleting addmission: ", error);
@@ -388,7 +495,7 @@ const getAllAddmissions = async (req: Request, res: Response) => {
             ));
 
         return res.status(200).json({
-            message: `All Admissions for instituteId: ${instituteId}`,
+            message: `All Admissions for instituteId: ${instituteId} `,
             data: allAdmissions,
             status: 200
         })
