@@ -169,7 +169,7 @@ const loginUser = async (req: Request, res: Response) => {
             lastName: user?.lastName,
             email: user?.email,
             gender: user?.gender,
-            instituteId: user?.id,
+            instituteId: user?.instituteId,
             phone: user?.phone,
             profileImage: user?.profileImage || "",
             permissions: permissions,

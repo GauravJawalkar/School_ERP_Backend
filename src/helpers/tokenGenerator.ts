@@ -10,7 +10,7 @@ const generateAccessToken = (user: TokenUser) => {
 }
 
 const generateRefreshToken = (user: TokenUser) => {
-    return jwt.sign(user, refreshTokenSecret, { expiresIn: '7d' })
+    return jwt.sign(user, refreshTokenSecret, { expiresIn: '1d' })
 }
 
 

@@ -1,4 +1,4 @@
-import { boolean, date, integer, pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, date, integer, pgEnum, pgTable, timestamp, uuid, varchar, text } from "drizzle-orm/pg-core";
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 import { staffTable } from "../staff/staff.model";
 import { usersTable } from "../user/users.model";
@@ -28,6 +28,10 @@ export const admissionsTable = pgTable('admissionsTable', {
     parentPhoneNo: varchar('parentPhoneNo', { length: 15 }).notNull(),
     applicationStatus: applicationStatusEnum('status').notNull().default('PENDING'),
     classId: integer('classId').references(() => classesTable.id, { onDelete: 'cascade' }).notNull(),
+    isDeleted: boolean('isDeleted').default(false),
+    deletedAt: timestamp('deletedAt'),
+    deletedBy: uuid('deletedBy').references(() => usersTable.id, { onDelete: 'set null' }),
+    deletionReason: text('deletionReason'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
     updatedAt: timestamp('updatedAt').defaultNow().notNull(),
 })

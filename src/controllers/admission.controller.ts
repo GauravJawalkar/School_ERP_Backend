@@ -346,7 +346,7 @@ const approveAddmission = async (req: Request, res: Response) => {
 }
 
 // update the addmission status
-const updateAddmission = async (req: Request, res: Response) => {
+const updateAddmissionStatus = async (req: Request, res: Response) => {
     try {
         const { status, addmissionId, instituteId } = req.body;
 
@@ -363,7 +363,8 @@ const updateAddmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, addmissionId),
-                    eq(admissionsTable.instituteId, instituteId)
+                    eq(admissionsTable.instituteId, instituteId),
+                    eq(admissionsTable.isDeleted, false)
                 )
             ).limit(1);
 
@@ -425,7 +426,8 @@ const deleteAddmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, addmissionId),
-                    eq(admissionsTable.instituteId, instituteId)
+                    eq(admissionsTable.instituteId, instituteId),
+                    eq(admissionsTable.isDeleted, false)
                 )
             ).limit(1);
 
@@ -476,6 +478,161 @@ const deleteAddmission = async (req: Request, res: Response) => {
     }
 }
 
+const softDeleteAddmission = async (req: Request, res: Response) => {
+    try {
+        const admissionId = Number(req.params.admissionId);
+        const { instituteId, id: userId } = req.user as TokenUser;
+        const { reason } = req.body;
+        const numInstituteId = Number(instituteId);
+
+        if (!admissionId || !numInstituteId || isNaN(admissionId)) {
+            return res.status(400).json({
+                message: "Valid admission ID is required",
+                status: 400
+            })
+        }
+
+        // Check if admission exists and not already deleted
+        const [admission] = await db
+            .select()
+            .from(admissionsTable)
+            .where(
+                and(
+                    eq(admissionsTable.id, admissionId),
+                    eq(admissionsTable.instituteId, numInstituteId),
+                    eq(admissionsTable.isDeleted, false)
+                )
+            )
+            .limit(1);
+
+        if (!admission) {
+            return res.status(404).json({
+                success: false,
+                message: "Admission not found or already deleted"
+            });
+        }
+
+        // Check if approved and has enrolled student
+        if (admission.applicationStatus === 'APPROVED' && admission.userId) {
+            const [student] = await db
+                .select({ currentSectionId: studentsTable.currentSectionId })
+                .from(studentsTable)
+                .where(eq(studentsTable.userId, admission.userId))
+                .limit(1);
+
+            if (student?.currentSectionId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Cannot delete. Student is enrolled. Please unenroll first."
+                });
+            }
+        }
+
+        // Soft delete - just mark as deleted
+        const [deletedAdmission] = await db
+            .update(admissionsTable)
+            .set({
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedBy: userId,
+                deletionReason: reason || 'No reason provided'
+            })
+            .where(eq(admissionsTable.id, admissionId))
+            .returning();
+
+        // Also deactivate user if exists
+        if (admission.userId) {
+            await db
+                .update(usersTable)
+                .set({ isActive: false })
+                .where(eq(usersTable.id, admission.userId));
+        }
+
+        return res.status(200).json({
+            status: 200,
+            message: "Admission soft deleted successfully",
+            data: {
+                admissionId: deletedAdmission?.id,
+                deletedAt: deletedAdmission?.deletedAt
+            }
+        });
+
+
+    } catch (error) {
+        console.log("Error deleting addmission: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error soft deleting addmission",
+            status: 500,
+        });
+    }
+}
+
+const restoreAdmission = async (req: Request, res: Response) => {
+    try {
+        const admissionId = Number(req.params.admissionId);
+        const { instituteId } = req.user as TokenUser;
+        const numInstituteId = Number(instituteId);
+
+        if (!admissionId || !instituteId) {
+            return res.status(400).json({
+                message: "Valid admission ID is required",
+                status: 400
+            })
+        }
+
+        const [admission] = await db
+            .select()
+            .from(admissionsTable)
+            .where(
+                and(
+                    eq(admissionsTable.id, admissionId),
+                    eq(admissionsTable.instituteId, numInstituteId),
+                    eq(admissionsTable.isDeleted, true)
+                )
+            )
+            .limit(1);
+
+        if (!admission) {
+            return res.status(404).json({
+                success: false,
+                message: "Deleted admission not found"
+            });
+        }
+
+        const [restored] = await db
+            .update(admissionsTable)
+            .set({
+                isDeleted: false,
+                deletedAt: null,
+                deletedBy: null,
+                deletionReason: null
+            })
+            .where(eq(admissionsTable.id, admissionId))
+            .returning();
+
+        // Reactivate user if exists
+        if (admission.userId) {
+            await db
+                .update(usersTable)
+                .set({ isActive: true })
+                .where(eq(usersTable.id, admission.userId));
+        }
+
+        return res.status(200).json({
+            status: 200,
+            message: "Admission restored successfully",
+            data: restored
+        });
+
+    } catch (error) {
+        console.log("Error restoring addmission: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error restoring addmission",
+            status: 500,
+        });
+    }
+}
+
 // This will get all approved admissions for an institute in a particular academic year
 const getAllAddmissions = async (req: Request, res: Response) => {
     try {
@@ -490,6 +647,7 @@ const getAllAddmissions = async (req: Request, res: Response) => {
             .from(admissionsTable)
             .where(and(
                 eq(admissionsTable.instituteId, instituteId),
+                eq(admissionsTable.isDeleted, false),
                 eq(admissionsTable.applicationStatus, 'APPROVED'),
                 eq(admissionsTable.academicYearId, yearId)
             ));
@@ -530,6 +688,7 @@ const getAddmission = async (req: Request, res: Response) => {
                 and(
                     eq(admissionsTable.id, addmissionId),
                     eq(admissionsTable.instituteId, instituteId),
+                    eq(admissionsTable.isDeleted, false)
                 )
             ).limit(1);
 
@@ -555,4 +714,13 @@ const getAddmission = async (req: Request, res: Response) => {
     }
 }
 
-export { createAddmission, updateAddmission, deleteAddmission, getAddmission, getAllAddmissions, approveAddmission };
+export {
+    createAddmission,
+    updateAddmissionStatus,
+    deleteAddmission,
+    softDeleteAddmission,
+    getAddmission,
+    getAllAddmissions,
+    approveAddmission,
+    restoreAdmission
+};

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { approveAddmission, createAddmission, getAddmission, getAllAddmissions } from "../controllers/admission.controller";
+import { approveAddmission, createAddmission, deleteAddmission, getAddmission, getAllAddmissions, restoreAdmission, softDeleteAddmission } from "../controllers/admission.controller";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
@@ -33,6 +33,33 @@ router
     .get(
         authenticateUser,
         checkUserPersmission(['admission.view']),
-        getAddmission
+        getAddmission);
+
+router
+    .route('/:addmissionId/:instituteId')
+    .delete(
+        authenticateUser,
+        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
+        checkUserPersmission(['admission.delete']),
+        deleteAddmission
     )
+
+router
+    .route('/:admissionId/soft')
+    .patch(
+        authenticateUser,
+        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
+        checkUserPersmission(['admission.delete']),
+        softDeleteAddmission
+    )
+
+router
+    .route('/:admissionId/restore')
+    .patch(
+        authenticateUser,
+        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
+        checkUserPersmission(['admission.create']),
+        restoreAdmission
+    );
+
 export default router
