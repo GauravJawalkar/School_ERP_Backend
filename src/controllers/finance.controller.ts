@@ -8,7 +8,9 @@ import type { TokenUser } from "../interface";
 // This controller creates a type of fee for a particular institute eg: Tution fee , transport fee, etc
 const createFeeHead = async (req: Request, res: Response) => {
     try {
-        const { instituteId, feeName, feeType, description, taxPercentage } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { feeName, feeType, description, taxPercentage } = req.body;
 
         if (!instituteId || !feeName || !feeType) {
             return res.status(400).json({
@@ -67,7 +69,9 @@ const createFeeHead = async (req: Request, res: Response) => {
 // This controller creates feeStructure as per individual class for the institute
 const createFeeStructure = async (req: Request, res: Response) => {
     try {
-        const { academicYearId, instituteId, classId, feeHeadId, amount, frequency, isCompulsory } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { academicYearId, classId, feeHeadId, amount, frequency, isCompulsory } = req.body;
 
         if (!academicYearId || !classId || !instituteId || !feeHeadId || !amount || !frequency) {
             return res.status(400).json({
@@ -130,7 +134,9 @@ const createFeeStructure = async (req: Request, res: Response) => {
 // After enrollment of student, auto-assign compulsory fees -> DONE (Keeping this one incase of manual assignment)
 const assignFees = async (req: Request, res: Response) => {
     try {
-        const { classId, instituteId, discountPercentage, discountReason, isWaived, waivedReason, academicYearId } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { classId, discountPercentage, discountReason, isWaived, waivedReason, academicYearId } = req.body;
 
         const studentId = Number(req.params.id);
 
@@ -260,7 +266,9 @@ const assignFees = async (req: Request, res: Response) => {
 // This controller creates feeInstallments like quartely, yearly,halfYear for specific institute
 const createFeeInstallment = async (req: Request, res: Response,) => {
     try {
-        const { academicYearId, name, installmentNumber, dueDate, lateFeeStartDate, finePerDay, instituteId } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { academicYearId, name, installmentNumber, dueDate, lateFeeStartDate, finePerDay } = req.body;
 
         if (!academicYearId || !name || !installmentNumber || !dueDate || !finePerDay || !instituteId) {
             return res.status(400).json({

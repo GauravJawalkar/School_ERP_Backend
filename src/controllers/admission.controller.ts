@@ -8,10 +8,10 @@ import { sendFirstTimeCredentialsEmail } from "../helpers/firstTimeLoginEmail";
 
 const createAddmission = async (req: Request, res: Response) => {
     try {
-        const { academicYearId, admissionDate, name, board, parentPhoneNo, applicationStatus, classId } = req.body;
-
         const loggedInUser = req.user as TokenUser;
         const instituteId = Number(loggedInUser?.instituteId);
+        const { academicYearId, admissionDate, name, board, parentPhoneNo, applicationStatus, classId } = req.body;
+
         if (!academicYearId || !admissionDate || !instituteId || !name || !board || !parentPhoneNo || !classId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
@@ -352,9 +352,9 @@ const approveAddmission = async (req: Request, res: Response) => {
 // update the addmission status
 const updateAddmissionStatus = async (req: Request, res: Response) => {
     try {
-        const { status, addmissionId } = req.body;
         const loggedInUser = req.user as TokenUser;
         const instituteId = Number(loggedInUser?.instituteId);
+        const { status, addmissionId } = req.body;
 
         if (!status || !addmissionId || !instituteId) {
             return res.status(400).json({
