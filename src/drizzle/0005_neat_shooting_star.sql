@@ -1,0 +1,1 @@
+ALTER TABLE "staffTable" ALTER COLUMN "instituteId" SET DEFAULT 4;

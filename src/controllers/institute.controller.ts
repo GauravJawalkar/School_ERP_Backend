@@ -78,7 +78,9 @@ const createSchool = async (req: Request, res: Response) => {
 
 const createSchoolAdmin = async (req: Request, res: Response) => {
     try {
-        const { firstName, lastName, instituteId, email, phone, gender, password, isActive, roleName } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { firstName, lastName, email, phone, gender, password, isActive, roleName } = req.body;
 
         if ([firstName, lastName, email, phone, gender, password, roleName].some(field => field.trim() === "" || !field)) {
             return res.status(400).json({ status: 400, message: "Provide all required fields" });
@@ -161,7 +163,9 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
 
 const createSchoolClass = async (req: Request, res: Response) => {
     try {
-        const { instituteId, className, academicYearId, capacity } = req.body;
+        const { className, academicYearId, capacity } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
 
         if (!instituteId || !className || !academicYearId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 })
@@ -242,7 +246,9 @@ const createClassSection = async (req: Request, res: Response) => {
 
 const createSubject = async (req: Request, res: Response) => {
     try {
-        const { instituteId, name, code, type, description, isActive } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { name, code, type, description, isActive } = req.body;
 
         if (!instituteId || !name || !type) {
             return res.status(400).json({ message: "Please provide the required fields", status: 400 });
@@ -349,7 +355,9 @@ const createClassSubject = async (req: Request, res: Response) => {
 
 const allocateTeacherToSubject = async (req: Request, res: Response) => {
     try {
-        const { academicYearId, classId, sectionId, subjectId, staffId, instituteId } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { academicYearId, classId, sectionId, subjectId, staffId } = req.body;
 
         if (!academicYearId || !classId || !sectionId || !subjectId || !staffId || !instituteId) {
             return res.status(400).json({

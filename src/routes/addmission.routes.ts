@@ -21,7 +21,7 @@ router
         approveAddmission);
 
 router
-    .route('/:instituteId/:yearId')
+    .route('/:yearId')
     .get(
         authenticateUser,
         checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
@@ -29,14 +29,14 @@ router
         getAllAddmissions);
 
 router
-    .route('/getAddmission/:instituteId/:addmissionId')
+    .route('/getAddmission/:addmissionId')
     .get(
         authenticateUser,
         checkUserPersmission(['admission.view']),
         getAddmission);
 
 router
-    .route('/:addmissionId/:instituteId')
+    .route('/:addmissionId')
     .delete(
         authenticateUser,
         checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),

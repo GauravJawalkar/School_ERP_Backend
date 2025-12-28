@@ -8,8 +8,10 @@ import { sendFirstTimeCredentialsEmail } from "../helpers/firstTimeLoginEmail";
 
 const createAddmission = async (req: Request, res: Response) => {
     try {
-        const { academicYearId, admissionDate, instituteId, name, board, parentPhoneNo, applicationStatus, classId } = req.body;
+        const { academicYearId, admissionDate, name, board, parentPhoneNo, applicationStatus, classId } = req.body;
 
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
         if (!academicYearId || !admissionDate || !instituteId || !name || !board || !parentPhoneNo || !classId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
@@ -61,7 +63,9 @@ const createAddmission = async (req: Request, res: Response) => {
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
-        const { firstName, lastName, instituteId, email, phone, gender, DOB, fatherName, motherName, address } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+        const { firstName, lastName, email, phone, gender, DOB, fatherName, motherName, address } = req.body;
         const roleName = "STUDENT";
 
         if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB || !fatherName || !motherName || !address) {
@@ -348,7 +352,9 @@ const approveAddmission = async (req: Request, res: Response) => {
 // update the addmission status
 const updateAddmissionStatus = async (req: Request, res: Response) => {
     try {
-        const { status, addmissionId, instituteId } = req.body;
+        const { status, addmissionId } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
 
         if (!status || !addmissionId || !instituteId) {
             return res.status(400).json({
@@ -411,7 +417,8 @@ const updateAddmissionStatus = async (req: Request, res: Response) => {
 const deleteAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.addmissionId);
-        const instituteId = Number(req.params.instituteId);
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
 
         if (!addmissionId || !instituteId) {
             return res.status(400).json({
@@ -636,7 +643,8 @@ const restoreAdmission = async (req: Request, res: Response) => {
 // This will get all approved admissions for an institute in a particular academic year
 const getAllAddmissions = async (req: Request, res: Response) => {
     try {
-        const instituteId = Number(req.params.instituteId);
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
         const yearId = Number(req.params.yearId);
 
         if (!instituteId || !yearId) {
@@ -671,7 +679,8 @@ const getAllAddmissions = async (req: Request, res: Response) => {
 const getAddmission = async (req: Request, res: Response) => {
     try {
 
-        const instituteId = Number(req.params.instituteId);
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
         const addmissionId = Number(req.params.addmissionId);
 
         if (!addmissionId || !instituteId) {

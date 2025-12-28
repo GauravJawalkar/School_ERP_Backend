@@ -8,7 +8,9 @@ import { staffTable, teacherProfileTable } from "../models/staff/staff.model";
 
 const createAcademicYear = async (req: Request, res: Response) => {
     try {
-        const { instituteId, name, startDate, endDate, isActive } = req.body;
+        const { name, startDate, endDate, isActive } = req.body;
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
 
         // Validation
         if (!name || !startDate || !endDate || !instituteId) {
@@ -87,7 +89,10 @@ const createAcademicYear = async (req: Request, res: Response) => {
 
 const createStaff = async (req: Request, res: Response) => {
     try {
-        const { firstName, lastName, instituteId, email, phone, gender, password, isActive, roleName, employeeCode, designation, joiningDate, salaryBasic, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankBranchName, bankAccType, upiId } = req.body;
+        const { firstName, lastName, email, phone, gender, password, isActive, roleName, employeeCode, designation, joiningDate, salaryBasic, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankBranchName, bankAccType, upiId } = req.body;
+
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
 
         if ([firstName, lastName, instituteId, email, phone, gender, password, roleName, employeeCode, designation, joiningDate, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankAccType,].some((field) => !field || field.trim() === "")
         ) {
@@ -109,7 +114,7 @@ const createStaff = async (req: Request, res: Response) => {
             upiId,
         };
 
-        const existingUser = await db
+        const [existingUser] = await db
             .select()
             .from(usersTable)
             .where(eq(usersTable.email, email))
@@ -117,7 +122,7 @@ const createStaff = async (req: Request, res: Response) => {
 
         // TODO: if the user with this email already exist then create a new api where you can just add that user to the StaffTable
 
-        if (existingUser.length > 0) {
+        if (!existingUser) {
             return res
                 .status(400)
                 .json({ message: "User with this email already exists", status: 400 });
@@ -187,6 +192,7 @@ const createStaff = async (req: Request, res: Response) => {
             .insert(staffTable)
             .values({
                 userId: newUser.id,
+                instituteId,
                 employeeCode,
                 firstName,
                 lastName,
@@ -246,4 +252,37 @@ const createStaff = async (req: Request, res: Response) => {
     }
 };
 
-export { createAcademicYear, createStaff };
+const getStaffByInstitute = async (req: Request, res: Response) => {
+    try {
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+
+        if (!instituteId) {
+            return res.status(400).json({
+                message: "Institute ID is required and must be a valid number",
+                status: 400,
+            });
+        }
+
+        const staffMembers = await db
+            .select()
+            .from(staffTable)
+            .where(eq(staffTable.instituteId, instituteId));
+
+        return res.status(200).json({
+            message: "Staff members fetched successfully",
+            status: 200,
+            data: staffMembers,
+        });
+
+
+    } catch (error) {
+        console.error("Error fetching staff by school: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error fetching staff by school",
+            status: 500,
+        });
+    }
+}
+
+export { createAcademicYear, createStaff, getStaffByInstitute };

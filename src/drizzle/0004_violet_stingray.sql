@@ -1,0 +1,2 @@
+ALTER TABLE "staffTable" ADD COLUMN "instituteId" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "staffTable" ADD CONSTRAINT "staffTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;

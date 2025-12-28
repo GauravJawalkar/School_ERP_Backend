@@ -8,6 +8,7 @@ export const staffTable = pgTable('staffTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     userId: uuid('userId').references(() => usersTable.id).notNull(),
     employeeCode: varchar('employeeCode', { length: 50 }).notNull(),
+    instituteId: integer('instituteId').references(() => instituteProfileTable.id, { onDelete: 'cascade' }).notNull(),
     firstName: varchar('firstName', { length: 100 }).notNull(),
     lastName: varchar('lastName', { length: 100 }).notNull(),
     designation: varchar('designation', { length: 100 }).notNull(),

@@ -29,6 +29,27 @@
       "when": 1766858589543,
       "tag": "0003_boring_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766910777984,
+      "tag": "0004_violet_stingray",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766910928461,
+      "tag": "0005_neat_shooting_star",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766911091971,
+      "tag": "0006_aromatic_the_leader",
+      "breakpoints": true
     }
   ]
 }
