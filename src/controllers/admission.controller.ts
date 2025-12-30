@@ -489,7 +489,7 @@ const softDeleteAddmission = async (req: Request, res: Response) => {
     try {
         const admissionId = Number(req.params.admissionId);
         const { instituteId, id: userId } = req.user as TokenUser;
-        const { reason } = req.body;
+        const { reason } = req.body || "none";
         const numInstituteId = Number(instituteId);
 
         if (!admissionId || !numInstituteId || isNaN(admissionId)) {
