@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import type { TokenUser } from "../interface";
 import { db } from "../db";
-import { instituteProfileTable, studentsTable } from "../models";
-import { and, eq } from "drizzle-orm";
+import { admissionsTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
+import { and, asc, eq } from "drizzle-orm";
 
 const getStuentsForSchool = async (req: Request, res: Response) => {
     try {
@@ -106,4 +106,206 @@ const getStudentProfile = async (req: Request, res: Response) => {
     }
 }
 
-export { getStudentProfile, getStuentsForSchool }
+const getStudentsByClassOrSection = async (req: Request, res: Response) => {
+    try {
+        const { classId, sectionId } = req.params;
+        const loggedInUser = req.user as TokenUser;
+        const targetInstituteId = Number(loggedInUser.instituteId);
+
+        const filters = [
+            eq(studentsTable.instituteId, targetInstituteId),
+            eq(studentsTable.status, 'ACTIVE')
+        ];
+
+        if (classId) {
+            filters.push(eq(studentsTable.currentClassId, Number(classId)));
+        }
+
+        if (sectionId) {
+            filters.push(eq(studentsTable.currentSectionId, Number(sectionId)));
+        }
+
+        const students = await db
+            .select({
+                id: studentsTable.id,
+                admissionNo: studentsTable.admissionNo,
+                firstName: studentsTable.firstName,
+                lastName: studentsTable.lastName,
+                rollNumber: studentsTable.rollNo,
+                gender: studentsTable.gender,
+                primaryPhone: parentsTable.primaryPhone,
+                fatherName: parentsTable.fatherName
+            })
+            .from(studentsTable)
+            .leftJoin(parentsTable, eq(parentsTable.studentId, studentsTable.id))
+            .where(and(...filters))
+            .orderBy(asc(studentsTable.rollNo));
+
+        return res.status(200).json({
+            success: true,
+            count: students.length,
+            data: students
+        });
+
+    } catch (error: any) {
+        console.error("❌ Error fetching students:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch students",
+            error: error.message
+        });
+    }
+};
+
+// TODO: Implement proper fallbacks if the student is not transferred or if any query fails
+const transferStudent = async (req: Request, res: Response) => {
+    try {
+        const studentId = Number(req.params.studentId);
+        const { newSectionId, reason } = req.body;
+
+        if (!newSectionId) {
+            return res.status(400).json({
+                success: false,
+                message: "New section ID is required"
+            });
+        }
+
+        const [student] = await db
+            .select()
+            .from(studentsTable)
+            .where(eq(studentsTable.id, studentId))
+            .limit(1);
+
+        if (!student) {
+            return res.status(404).json({
+                success: false,
+                message: "Student not found"
+            });
+        }
+
+        // Get new section details
+        const [newSection] = await db
+            .select()
+            .from(sectionsTable)
+            .where(eq(sectionsTable.id, newSectionId))
+            .limit(1);
+
+        if (!newSection) {
+            return res.status(404).json({
+                success: false,
+                message: "New section not found"
+            });
+        }
+
+        // Update student
+        await db
+            .update(studentsTable)
+            .set({
+                currentSectionId: newSectionId,
+                currentClassId: Number(newSection.classId),
+            })
+            .where(eq(studentsTable.id, studentId));
+
+        const studentAddmissionNo = Number(student?.admissionNo);
+
+        // Update current enrollment
+        await db
+            .update(admissionsTable)
+            .set({
+                classId: Number(newSection.classId)
+            })
+            .where(
+                and(
+                    eq(admissionsTable.id, studentAddmissionNo),
+                    eq(admissionsTable.applicationStatus, 'APPROVED')
+                )
+            );
+
+        return res.status(200).json({
+            success: true,
+            message: "Student transferred successfully",
+            data: {
+                studentId,
+                newSectionId,
+                reason: reason || 'Section transfer'
+            }
+        });
+
+    } catch (error: any) {
+        console.error("❌ Error transferring student:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to transfer student",
+            error: error.message
+        });
+    }
+};
+
+const updateStudent = async (req: Request, res: Response) => {
+    try {
+        const studentId = Number(req.params.studentId);
+        const loggedInUser = req.user as TokenUser;
+        const targetInstituteId = Number(loggedInUser.instituteId);
+
+        const {
+            firstName,
+            lastName,
+            DOB,
+            gender,
+            category,
+            rollNumber
+        } = req.body;
+
+        // Check if student exists
+        const [existingStudent] = await db
+            .select()
+            .from(studentsTable)
+            .where(
+                and(
+                    eq(studentsTable.id, studentId),
+                    eq(studentsTable.instituteId, targetInstituteId)
+                )
+            ).limit(1);
+
+        if (!existingStudent) {
+            return res.status(404).json({
+                success: false,
+                message: "Student not found"
+            });
+        }
+
+        // Update student
+        const [updatedStudent] = await db
+            .update(studentsTable)
+            .set({
+                firstName: firstName || existingStudent.firstName,
+                lastName: lastName || existingStudent.lastName,
+                DOB: DOB || existingStudent.DOB,
+                gender: gender || existingStudent.gender,
+                category: category || existingStudent.category,
+                rollNo: rollNumber || existingStudent.rollNo,
+            })
+            .where(
+                and(
+                    eq(studentsTable.id, studentId),
+                    eq(studentsTable.instituteId, targetInstituteId),
+                )
+            ).returning();
+
+        return res.status(200).json({
+            success: true,
+            message: "Student updated successfully",
+            data: updatedStudent
+        });
+
+    } catch (error: any) {
+        console.error("Error updating student:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update student",
+            error: error.message
+        });
+    }
+};
+
+export { getStudentProfile, getStuentsForSchool, getStudentsByClassOrSection, transferStudent, updateStudent }
