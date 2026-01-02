@@ -308,4 +308,16 @@ const updateStudent = async (req: Request, res: Response) => {
     }
 };
 
-export { getStudentProfile, getStuentsForSchool, getStudentsByClassOrSection, transferStudent, updateStudent }
+const promoteStudent = async (req: Request, res: Response) => {
+    try {
+
+    } catch (error) {
+        console.error("Error in promoteStudent: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error promoting student",
+            status: 500
+        })
+    }
+}
+
+export { getStudentProfile, getStuentsForSchool, getStudentsByClassOrSection, transferStudent, updateStudent, promoteStudent }
