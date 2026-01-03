@@ -310,6 +310,20 @@ const updateStudent = async (req: Request, res: Response) => {
 
 const promoteStudent = async (req: Request, res: Response) => {
     try {
+        // Algo | Steps for implementation:
+        // Create new academic year(2025 - 26)
+        // Create classes for new year(Grade 1, 2, 3...in 2025 - 26)
+        // Create sections for new classes
+        // Promote students from old class → new class
+
+        // Close old enrollment(COMPLETED)
+        // Create new enrollment(ACTIVE)
+        // Update student's current class/section
+
+
+        // Assign roll numbers in new sections
+        // Assign subjects to new classes
+        // Generate fee invoices for new year
 
     } catch (error) {
         console.error("Error in promoteStudent: ", error);
