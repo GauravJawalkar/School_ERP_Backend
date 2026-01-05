@@ -1,12 +1,34 @@
 import { boolean, date, integer, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "../user/users.model";
-import { classesTable, sectionsTable } from "../acedemics/academics.model";
+import { academicYearsTable, classesTable, sectionsTable } from "../acedemics/academics.model";
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 
 export const castCategoryEnum = pgEnum('category', ['GENERAL', 'OBC', 'SC/ST']);
 export const studentStatusEnum = pgEnum('status', ['ACTIVE', 'ALUMINI', 'WITHDRAWN', 'TRANSFRRED']);
 export const studentAttendanceStatus = pgEnum('status', ['PRESENT', 'ABSENT', 'LATE', 'LEAVE']);
 const genderEnum = pgEnum('gender', ['MALE', 'FEMALE', 'OTHER']);
+
+export const enrollmentStatusEnum = pgEnum('enrollmentStatus', [
+    'ACTIVE',
+    'COMPLETED',
+    'TRANSFERRED',
+    'WITHDRAWN'
+]);
+
+export const studentEnrollmentTable = pgTable('studentEnrollmentTable', {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    studentId: integer('studentId').references(() => studentsTable.id, { onDelete: 'cascade' }).notNull(),
+    classId: integer('classId').references(() => classesTable.id, { onDelete: 'cascade' }).notNull(),
+    sectionId: integer('sectionId').references(() => sectionsTable.id, { onDelete: 'set null' }),
+    academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
+    rollNo: integer('rollNo'),
+    enrollmentDate: date('enrollmentDate').notNull(),
+    status: enrollmentStatusEnum('status').notNull().default('ACTIVE'),
+    exitDate: date('exitDate'),
+    exitReason: text('exitReason'),
+    createdAt: timestamp('createdAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+});
 
 export const studentsTable = pgTable('studentsTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),

@@ -3,6 +3,8 @@ import type { TokenUser } from "../interface";
 import { db } from "../db";
 import { admissionsTable, classesTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
 import { and, asc, desc, eq } from "drizzle-orm";
+import { promoteSingleStudent, type PromotionType } from "../services/promotion.service";
+import { getNextYearClass, getSameLevelNextYearClass } from "../utils/promotion.utils";
 
 const getStuentsForSchool = async (req: Request, res: Response) => {
     try {
@@ -311,129 +313,80 @@ const updateStudent = async (req: Request, res: Response) => {
 const autoPromoteStudent = async (req: Request, res: Response) => {
     try {
         const studentId = Number(req.params.studentId);
-        const { targetClassId, targetSectionId, targetAcademicYearId, promotionType } = req.body;
+        const {
+            targetAcademicYearId,
+            targetClassId,
+            targetSectionId,
+            promotionType = 'PROMOTED' as PromotionType
+        } = req.body;
 
+        const user = req.user as TokenUser;
 
-        const [student] = await db
-            .select()
-            .from(studentsTable)
-            .where(eq(studentsTable.id, studentId))
-            .limit(1);
-
-        if (!student) {
-            throw new Error(`Student ${studentId} not found`);
+        if (!studentId || isNaN(studentId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid student ID is required"
+            });
         }
 
-        if (student.status !== 'ACTIVE') {
-            throw new Error(`Student ${studentId} is not active`);
+        if (!targetAcademicYearId) {
+            return res.status(400).json({
+                success: false,
+                message: "targetAcademicYearId is required"
+            });
         }
 
-        // ============================================
-        // 2. GET CURRENT ENROLLMENT
-        // ============================================
+        // If targetClassId not provided, auto-determine
+        let finalTargetClassId = targetClassId;
 
-        const [currentEnrollment] = await db
-            .select()
-            .from(admissionsTable)
-            .where(
-                and(
-                    eq(studentsTable.id, studentId),
-                    eq(studentsTable.status, 'ACTIVE')
-                )
-            ).limit(1);
-
-        if (!currentEnrollment) {
-            throw new Error(`No active enrollment found for student ${studentId}`);
-        }
-
-        // ============================================
-        // 3. VALIDATE TARGET CLASS
-        // ============================================
-
-        const [targetClass] = await db
-            .select()
-            .from(classesTable)
-            .where(eq(classesTable.id, targetClassId))
-            .limit(1);
-
-        if (!targetClass) {
-            throw new Error(`Target class ${targetClassId} not found`);
-        }
-
-        if (targetClass.academicYearId !== targetAcademicYearId) {
-            throw new Error('Target class does not belong to target academic year');
-        }
-
-        // ============================================
-        // 4. DETERMINE TARGET SECTION
-        // ============================================
-
-        let finalSectionId = targetSectionId;
-
-        if (!finalSectionId) {
-            // Auto-assign to first available section
-            const [firstSection] = await db
-                .select()
-                .from(sectionsTable)
-                .where(eq(sectionsTable.classId, targetClassId))
+        if (!finalTargetClassId) {
+            const [student] = await db
+                .select({ currentClassId: studentsTable.currentClassId })
+                .from(studentsTable)
+                .where(eq(studentsTable.id, studentId))
                 .limit(1);
 
-            finalSectionId = firstSection?.id || null;
+            if (!student) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Student not found"
+                });
+            }
+
+            if (promotionType === 'PROMOTED') {
+                finalTargetClassId = await getNextYearClass(
+                    student.currentClassId,
+                    targetAcademicYearId
+                );
+            } else {
+                finalTargetClassId = await getSameLevelNextYearClass(
+                    student.currentClassId,
+                    targetAcademicYearId
+                );
+            }
+
+            if (!finalTargetClassId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Could not determine target class"
+                });
+            }
         }
 
-        // ============================================
-        // 5. CLOSE CURRENT ENROLLMENT
-        // ============================================
-
-        await db
-            .update(studentsTable)
-            .set({
-                status: 'ACTIVE',
-            })
-            .where(eq(studentsTable.id, currentEnrollment.id));
-
-        // ============================================
-        // 6. CREATE NEW ENROLLMENT
-        // ============================================
-
-        const [newEnrollment] = await db
-            .insert(studentsTable)
-            .values({
-                currentClassId: targetClassId,
-                currentSectionId: finalSectionId,
-                academicYearId: targetAcademicYearId,
-                enrollmentDate: new Date(),
-                status: 'ACTIVE',
-                rollNo: null  // Will be assigned later
-            })
-            .returning();
-
-        // ============================================
-        // 7. UPDATE STUDENT RECORD
-        // ============================================
-
-        await db
-            .update(studentsTable)
-            .set({
-                currentClassId: targetClassId,
-                currentSectionId: finalSectionId,
-                rollNumber: null,  // Reset roll number
-                updatedAt: new Date()
-            })
-            .where(eq(studentsTable.id, studentId));
-
-        // ============================================
-        // 8. RETURN SUCCESS
-        // ============================================
-
-        return {
-            success: true,
+        // Promote student
+        const result = await promoteSingleStudent({
             studentId,
-            oldEnrollmentId: currentEnrollment.id,
-            newEnrollmentId: newEnrollment.id,
-            targetClassId,
-            targetSectionId: finalSectionId
-        };
+            targetAcademicYearId,
+            targetClassId: finalTargetClassId,
+            targetSectionId,
+            promotionType
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `Student ${promotionType.toLowerCase()} successfully`,
+            data: result
+        });
 
     } catch (error) {
         console.error("Error in promoteStudent: ", error);

@@ -1,3 +1,5 @@
+import type { PromotionType } from "../services/promotion.service";
+
 export interface ContactInfo {
     main_phone?: string;
     alternate_phones?: string[];
@@ -62,4 +64,12 @@ export interface TemplateParams {
     contactPhone: string;
     schoolAddress: string;
     loginUrl: string;
+}
+
+export interface PromoteStudentParams {
+    studentId: number;
+    targetAcademicYearId: number;
+    targetClassId: number;
+    targetSectionId?: number;
+    promotionType?: PromotionType;
 }

@@ -2,6 +2,7 @@ import { boolean, date, integer, pgEnum, pgTable, timestamp, uuid, varchar, text
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 import { staffTable } from "../staff/staff.model";
 import { usersTable } from "../user/users.model";
+import { enrollmentStatusEnum, studentsTable } from "../students/students.model";
 
 export const classSectionEnums = pgEnum('classSectionName', ['A', 'B', 'C', 'D', 'E', 'F'])
 export const subjectTypeEnum = pgEnum('subjectType', ['THEORY', 'PRACTICAL', 'LAB'])

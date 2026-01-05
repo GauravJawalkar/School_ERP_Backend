@@ -50,6 +50,13 @@
       "when": 1766911091971,
       "tag": "0006_aromatic_the_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1767639071289,
+      "tag": "0007_flippant_patch",
+      "breakpoints": true
     }
   ]
 }
