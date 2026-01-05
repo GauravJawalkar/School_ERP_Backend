@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import type { TokenUser } from "../interface";
 import { db } from "../db";
-import { admissionsTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
-import { and, asc, eq } from "drizzle-orm";
+import { admissionsTable, classesTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 const getStuentsForSchool = async (req: Request, res: Response) => {
     try {
@@ -308,22 +308,132 @@ const updateStudent = async (req: Request, res: Response) => {
     }
 };
 
-const promoteStudent = async (req: Request, res: Response) => {
+const autoPromoteStudent = async (req: Request, res: Response) => {
     try {
-        // Algo | Steps for implementation:
-        // Create new academic year(2025 - 26)
-        // Create classes for new year(Grade 1, 2, 3...in 2025 - 26)
-        // Create sections for new classes
-        // Promote students from old class → new class
-
-        // Close old enrollment(COMPLETED)
-        // Create new enrollment(ACTIVE)
-        // Update student's current class/section
+        const studentId = Number(req.params.studentId);
+        const { targetClassId, targetSectionId, targetAcademicYearId, promotionType } = req.body;
 
 
-        // Assign roll numbers in new sections
-        // Assign subjects to new classes
-        // Generate fee invoices for new year
+        const [student] = await db
+            .select()
+            .from(studentsTable)
+            .where(eq(studentsTable.id, studentId))
+            .limit(1);
+
+        if (!student) {
+            throw new Error(`Student ${studentId} not found`);
+        }
+
+        if (student.status !== 'ACTIVE') {
+            throw new Error(`Student ${studentId} is not active`);
+        }
+
+        // ============================================
+        // 2. GET CURRENT ENROLLMENT
+        // ============================================
+
+        const [currentEnrollment] = await db
+            .select()
+            .from(admissionsTable)
+            .where(
+                and(
+                    eq(studentsTable.id, studentId),
+                    eq(studentsTable.status, 'ACTIVE')
+                )
+            ).limit(1);
+
+        if (!currentEnrollment) {
+            throw new Error(`No active enrollment found for student ${studentId}`);
+        }
+
+        // ============================================
+        // 3. VALIDATE TARGET CLASS
+        // ============================================
+
+        const [targetClass] = await db
+            .select()
+            .from(classesTable)
+            .where(eq(classesTable.id, targetClassId))
+            .limit(1);
+
+        if (!targetClass) {
+            throw new Error(`Target class ${targetClassId} not found`);
+        }
+
+        if (targetClass.academicYearId !== targetAcademicYearId) {
+            throw new Error('Target class does not belong to target academic year');
+        }
+
+        // ============================================
+        // 4. DETERMINE TARGET SECTION
+        // ============================================
+
+        let finalSectionId = targetSectionId;
+
+        if (!finalSectionId) {
+            // Auto-assign to first available section
+            const [firstSection] = await db
+                .select()
+                .from(sectionsTable)
+                .where(eq(sectionsTable.classId, targetClassId))
+                .limit(1);
+
+            finalSectionId = firstSection?.id || null;
+        }
+
+        // ============================================
+        // 5. CLOSE CURRENT ENROLLMENT
+        // ============================================
+
+        await db
+            .update(studentsTable)
+            .set({
+                status: 'ACTIVE',
+            })
+            .where(eq(studentsTable.id, currentEnrollment.id));
+
+        // ============================================
+        // 6. CREATE NEW ENROLLMENT
+        // ============================================
+
+        const [newEnrollment] = await db
+            .insert(studentsTable)
+            .values({
+                currentClassId: targetClassId,
+                currentSectionId: finalSectionId,
+                academicYearId: targetAcademicYearId,
+                enrollmentDate: new Date(),
+                status: 'ACTIVE',
+                rollNo: null  // Will be assigned later
+            })
+            .returning();
+
+        // ============================================
+        // 7. UPDATE STUDENT RECORD
+        // ============================================
+
+        await db
+            .update(studentsTable)
+            .set({
+                currentClassId: targetClassId,
+                currentSectionId: finalSectionId,
+                rollNumber: null,  // Reset roll number
+                updatedAt: new Date()
+            })
+            .where(eq(studentsTable.id, studentId));
+
+        // ============================================
+        // 8. RETURN SUCCESS
+        // ============================================
+
+        return {
+            success: true,
+            studentId,
+            oldEnrollmentId: currentEnrollment.id,
+            newEnrollmentId: newEnrollment.id,
+            targetClassId,
+            targetSectionId: finalSectionId
+        };
 
     } catch (error) {
         console.error("Error in promoteStudent: ", error);
@@ -334,4 +444,4 @@ const promoteStudent = async (req: Request, res: Response) => {
     }
 }
 
-export { getStudentProfile, getStuentsForSchool, getStudentsByClassOrSection, transferStudent, updateStudent, promoteStudent }
+export { getStudentProfile, getStuentsForSchool, getStudentsByClassOrSection, transferStudent, updateStudent, autoPromoteStudent }

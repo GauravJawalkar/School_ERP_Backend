@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
-import { getStudentProfile, getStudentsByClassOrSection, getStuentsForSchool, promoteStudent, transferStudent, updateStudent } from "../controllers/student.controller";
+import { autoPromoteStudent, getStudentProfile, getStudentsByClassOrSection, getStuentsForSchool, transferStudent, updateStudent } from "../controllers/student.controller";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 
 const router = Router();
@@ -58,7 +58,7 @@ router
     .post(
         authenticateUser,
         checkUserPersmission(['student.update']),
-        promoteStudent
+        autoPromoteStudent
     )
 
 export default router;
