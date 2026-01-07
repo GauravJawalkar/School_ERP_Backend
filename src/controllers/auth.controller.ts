@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
 import { permissionsTable, resetPasswordTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
 import { eq } from "drizzle-orm";
@@ -17,12 +16,12 @@ const signupUser = async (req: Request, res: Response) => {
 
         // STEP 2: VALIDATE REQUIRED FIELDS
         if ([firstName, lastName, email, phone, gender, password, roleName].some(field => field.trim() === "" || !field)) {
-            return res.status(400).json(new ApiError(400, "Provide all required fields"));
+            return res.status(400).json({ status: 400, message: "Provide all required fields" });
         }
 
         // Check if instituteId is provided
         if (!instituteId) {
-            return res.status(400).json(new ApiError(400, "Institute Id is required"));
+            return res.status(400).json({ status: 400, message: "Institute Id is required" });
         }
 
         // STEP 3: CHECK IF USER ALREADY EXISTS
@@ -35,7 +34,7 @@ const signupUser = async (req: Request, res: Response) => {
 
         // STEP 4: PREVENT SUPER_ADMIN ASSIGNMENT VIA SIGNUP
         if (roleName === "SUPER_ADMIN") {
-            return res.status(403).json(new ApiError(403, "You Cannot assign SUPER_ADMIN role"));
+            return res.status(403).json({ status: 403, message: "You Cannot assign SUPER_ADMIN role" });
         }
 
         // CHECKING IF ROLE EXISTS IN DB
@@ -43,7 +42,7 @@ const signupUser = async (req: Request, res: Response) => {
         const [targetRole] = await db.select({ id: rolesTable.id, name: rolesTable.name }).from(rolesTable).where(eq(rolesTable.name, roleName)).limit(1);
 
         if (!targetRole) {
-            return res.status(404).json(new ApiError(404, `Role '${roleName}' not found in the database.`));
+            return res.status(404).json({ status: 404, message: `Role '${roleName}' not found in the database.` });
         }
 
         // STEP 6: HANDLE PROFILE IMAGE UPLOAD
@@ -104,7 +103,7 @@ const signupUser = async (req: Request, res: Response) => {
             await db.delete(usersTable).where(eq(usersTable.id, newUser.id));
             return res
                 .status(500)
-                .json(new ApiError(500, "Failed to assign role to user"));
+                .json({ status: 500, message: "Failed to assign role to user" });
         }
 
         // STEP 12: RETURN SUCCESS RESPONSE
@@ -120,7 +119,7 @@ const signupUser = async (req: Request, res: Response) => {
 
     } catch (error) {
         console.error("Error creating the user : ", error);
-        return res.status(500).json(new ApiError(500, "Internal Server Error"));
+        return res.status(500).json({ status: 500, message: "Internal Server Error" });
     }
 }
 
@@ -202,7 +201,7 @@ const forgotPassword = async (req: Request, res: Response) => {
         const { email } = req.body;
 
         if (!email || email.trim() === "") {
-            return res.status(400).json(new ApiError(400, "Email is required"));
+            return res.status(400).json({ status: 400, message: "Email is required" });
         }
 
         const response = await sendEmail(email, "forgotPassword", res);
@@ -223,29 +222,29 @@ const resetPassword = async (req: Request, res: Response) => {
         const { email, otp, newPassword } = req.body;
 
         if ([email, otp, newPassword].some(field => field.trim() === "" || !field)) {
-            return res.status(400).json(new ApiError(400, "Please provide email, otp and newPassword"));
+            return res.status(400).json({ status: 400, message: "Please provide email, otp and newPassword" });
         }
 
         const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
 
         if (!user) {
-            return res.status(404).json(new ApiError(404, "User with this email not found"));
+            return res.status(404).json({ status: 404, message: "User with this email not found" });
         }
 
         const [passwordResetRecord] = await db.select().from(resetPasswordTable).where(eq(resetPasswordTable.userId, user?.id));
 
         if (!passwordResetRecord) {
-            return res.status(404).json(new ApiError(404, "No password reset request found for this user"));
+            return res.status(404).json({ status: 404, message: "No password reset request found for this user" });
         }
 
         const isOtpValid = bcrypt.compareSync(otp, passwordResetRecord?.otp);
 
         if (!isOtpValid) {
-            return res.status(400).json(new ApiError(400, "Invalid OTP provided"));
+            return res.status(400).json({ status: 400, message: "Invalid OTP provided" });
         }
 
         if (passwordResetRecord.expiresAt < new Date()) {
-            return res.status(400).json(new ApiError(400, "OTP has expired"));
+            return res.status(400).json({ status: 400, message: "OTP has expired" });
         }
 
         const encryptedPassword = bcrypt.hashSync(newPassword, Number(process.env.SALT_ROUNDS)).toString();
@@ -255,7 +254,7 @@ const resetPassword = async (req: Request, res: Response) => {
         if (response.length > 0) {
             await db.delete(resetPasswordTable).where(eq(resetPasswordTable.userId, user?.id));
         } else {
-            return res.status(500).json(new ApiError(500, "Failed to reset the password"));
+            return res.status(500).json({ status: 500, message: "Failed to reset the password" });
         }
 
         return res.status(200).json({ status: 200, message: "Password reset successfully" });

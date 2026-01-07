@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import type { TokenUser } from "../interface";
 import { db } from "../db";
-import { admissionsTable, classesTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { admissionsTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
+import { and, asc, eq } from "drizzle-orm";
 import { promoteSingleStudent, type PromotionType } from "../services/promotion.service";
 import { getNextYearClass, getSameLevelNextYearClass } from "../utils/promotion.utils";
 
@@ -319,8 +319,6 @@ const autoPromoteStudent = async (req: Request, res: Response) => {
             targetSectionId,
             promotionType = 'PROMOTED' as PromotionType
         } = req.body;
-
-        const user = req.user as TokenUser;
 
         if (!studentId || isNaN(studentId)) {
             return res.status(400).json({

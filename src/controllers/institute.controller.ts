@@ -1,5 +1,4 @@
 import type { Request, Response } from "express"
-import { ApiError } from "../utils/ApiError";
 import { db } from "../db";
 import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
@@ -12,7 +11,7 @@ const createSchool = async (req: Request, res: Response) => {
         const { schoolName, affiliationNumber, address, main_phone, primaryEmail, office_hours_Mon_Fri, office_hours_Sat, office_hours_Sun, website, landmark, area, city, state, pincode, } = req.body;
 
         if ([schoolName, affiliationNumber, address, main_phone, primaryEmail, office_hours_Mon_Fri, office_hours_Sat, office_hours_Sun, website, landmark, area, city, state, pincode].some(field => field.trim() === "" || !field)) {
-            return res.json(new ApiError(400, "Missing required fields")).status(400);
+            return res.json({ status: 400, message: "Missing required fields" }).status(400);
         }
 
         const contactInformation = {
@@ -39,20 +38,20 @@ const createSchool = async (req: Request, res: Response) => {
         const [existingInstitute] = await db.select().from(instituteProfileTable).where(eq(instituteProfileTable.schoolName, schoolName));
 
         if (existingInstitute) {
-            return res.json(new ApiError(409, "This school already exists!")).status(409);
+            return res.status(409).json({ status: 409, message: "This school already exists!" });
         }
 
         const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
         const logoImageLocalPath = files?.instituteLogo?.[0]?.path;
 
         if (!logoImageLocalPath) {
-            return res.json(new ApiError(400, "Logo-image file is missing")).status(400)
+            return res.status(400).json({ status: 400, message: "Logo-image file is missing" })
         }
 
         const logoImage = await uploadImageToCloudinary(logoImageLocalPath, "School_Erp_Logos");
 
         if (!logoImage) {
-            return res.json(new ApiError(500, "Failed to upload logo image")).status(500);
+            return res.status(500).json({ status: 500, message: "Failed to upload logo image" });
         }
 
         const [newInstitute] = await db.insert(instituteProfileTable).values({
@@ -65,14 +64,14 @@ const createSchool = async (req: Request, res: Response) => {
 
         // Check if institute creation was successful
         if (!newInstitute) {
-            return res.json(new ApiError(404, "Failed to register the institute")).status(404);
+            return res.status(404).json({ status: 404, message: "Failed to register the institute" });
         }
 
         return res.status(201).json({ message: "Institute created Successfully", data: newInstitute });
 
     } catch (error) {
         console.error("Errro Creating institute : ", error);
-        return res.json(new ApiError(500, "Internal Server Error")).status(500);
+        return res.status(500).json({ status: 500, message: "Internal Server Error" });
     }
 }
 
@@ -87,7 +86,7 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
         }
 
         if (!instituteId) {
-            return res.status(400).json(new ApiError(400, "Institute Id is required"));
+            return res.status(400).json({ status: 400, message: "Institute Id is required" });
         }
 
         const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.email, email));
@@ -142,7 +141,7 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
             await db.delete(usersTable).where(eq(usersTable.id, schoolAdmin.id));
             return res
                 .status(500)
-                .json(new ApiError(500, "Failed to assign role to user"));
+                .json({ status: 500, message: "Failed to assign role to user" });
         }
 
         return res.status(201).json({
