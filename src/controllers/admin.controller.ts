@@ -286,3 +286,16 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
 }
 
 export { createAcademicYear, createStaff, getStaffByInstitute };
+
+
+// TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)
+// 1. Admin clicks ONE button: "Setup Next Academic Year"
+// 2. System automatically:
+// - Creates academic year
+//     - Clones ALL classes from current year
+//         - Clones ALL sections
+//             - Assigns default subjects
+// 3. Admin reviews and confirms
+// 4. Admin clicks: "Promote All Students"
+// 5. System promotes everyone automatically
+// 6. Admin manually adjusts exceptions(detained students)
