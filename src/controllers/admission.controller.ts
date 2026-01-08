@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { admissionsTable, feeStructuresTable, parentsTable, rolesTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable } from "../models";
+import { admissionsTable, feeStructuresTable, parentsTable, rolesTable, studentEnrollmentTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import bcrypt from 'bcrypt'
 import type { TokenUser } from "../interface";
@@ -314,7 +314,29 @@ const approveAddmission = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Failed to create parent record. Admission not approved.", status: 400 });
         }
 
-        // Admission → Approval → User Creation → Enrollment → Assign Fees → ParentTableEntry →Login Access
+        const [studentEnrollmentEntry] = await db
+            .insert(studentEnrollmentTable)
+            .values({
+                studentId: newStudentRecord.id,
+                classId: approveAddmission.classId,
+                sectionId: null,
+                academicYearId: approveAddmission.academicYearId,
+                enrollmentDate: String(Date.now()),
+                status: 'ACTIVE',
+            }).returning({
+                id: studentEnrollmentTable.id,
+                studentId: studentEnrollmentTable.studentId,
+                status: studentEnrollmentTable.status,
+            });
+
+        if (!studentEnrollmentEntry?.id) {
+            return res.status(400).json({
+                message: "Failed to create the studentEnrollment entry",
+                status: 400
+            })
+        }
+
+        // Admission → Approval → User Creation → Enrollment → Assign Fees → ParentTableEntry → StudentEnrollmentTableEntry -> Login Access
         const sendCredentialsOnMail = await sendFirstTimeCredentialsEmail(
             {
                 parentEmail: email,
