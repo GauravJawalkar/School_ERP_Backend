@@ -65,7 +65,7 @@ const parentsTable = pgTable("parentsTable", {
     state: varchar('state', { length: 100 }),
     pincode: varchar('pincode', { length: 10 }),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 })
 
 const studentParentMapTable = pgTable("studentParentMapTable", {

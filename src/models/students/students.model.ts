@@ -27,7 +27,7 @@ export const studentEnrollmentTable = pgTable('studentEnrollmentTable', {
     exitDate: date('exitDate'),
     exitReason: text('exitReason'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 });
 
 export const studentsTable = pgTable('studentsTable', {

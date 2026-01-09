@@ -34,7 +34,7 @@ export const admissionsTable = pgTable('admissionsTable', {
     deletedBy: uuid('deletedBy').references(() => usersTable.id, { onDelete: 'set null' }),
     deletionReason: text('deletionReason'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 })
 
 export const classesTable = pgTable('classesTable', {
@@ -82,7 +82,7 @@ export const classSubjectsTable = pgTable('classSubjectsTable', {
     isCompulsory: boolean('isCompulsory').default(true),
     isActive: boolean('isActive').default(true),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 })
 
 export const subjectAllocationsTable = pgTable('subjectAllocationsTable', {

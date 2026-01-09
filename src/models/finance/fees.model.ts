@@ -21,7 +21,7 @@ export const feeHeadsTable = pgTable("feeHeadsTable", {
     isRefundable: boolean('isRefundable').default(false),
     isActive: boolean('isActive').default(true),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 });
 
 // For every class Fees Structure can differ
@@ -36,7 +36,7 @@ export const feeStructuresTable = pgTable('feeStructuresTable', {
     isCompulsory: boolean('isCompulsory').default(true),
     dueDay: integer('dueDay'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull()
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 });
 
 export const feeInstallmentsTable = pgTable('feeInstallmentsTable', {
@@ -51,7 +51,7 @@ export const feeInstallmentsTable = pgTable('feeInstallmentsTable', {
     maxFine: decimal('maxFine', { precision: 10, scale: 2 }),
     description: text('description'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 });
 
 export const studentFeeAssignmentsTable = pgTable('studentFeeAssignmentsTable', {
@@ -74,7 +74,7 @@ export const studentFeeAssignmentsTable = pgTable('studentFeeAssignmentsTable', 
     assignedAt: timestamp('assignedAt').defaultNow().notNull(),
     assignedBy: uuid('assignedBy').references(() => usersTable.id, { onDelete: 'set null' }),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 });
 
 export const invoicesTable = pgTable('invoicesTable', {
@@ -94,7 +94,7 @@ export const invoicesTable = pgTable('invoicesTable', {
     paidAt: timestamp('paidAt'),
     notes: text('notes'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 });
 
 export const invoiceLineItemsTable = pgTable('invoiceLineItemsTable', {
