@@ -285,7 +285,38 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
     }
 }
 
-export { createAcademicYear, createStaff, getStaffByInstitute };
+const getAcademicYears = async (req: Request, res: Response) => {
+    try {
+        const loggedInUser = req.user as TokenUser;
+        const instituteId = Number(loggedInUser?.instituteId);
+
+        if (!instituteId) {
+            return res.status(400).json({
+                message: "Institute ID is required and must be a valid number",
+                status: 400,
+            });
+        }
+
+        const academicYears = await db
+            .select()
+            .from(academicYearsTable)
+            .where(eq(academicYearsTable.instituteId, instituteId));
+
+        return res.status(200).json({
+            message: "Academic years fetched successfully",
+            status: 200,
+            data: academicYears,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal Server Error fetching academic years",
+            status: 500,
+        });
+    }
+}
+
+export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears };
 
 
 // TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)
