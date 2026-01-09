@@ -64,6 +64,27 @@
       "when": 1767982679798,
       "tag": "0008_nifty_tana_nile",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1767990306499,
+      "tag": "0009_exotic_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1767990497151,
+      "tag": "0010_magenta_adam_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1767990553043,
+      "tag": "0011_thick_spirit",
+      "breakpoints": true
     }
   ]
 }

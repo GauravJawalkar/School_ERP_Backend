@@ -20,6 +20,7 @@ import adminRouter from './routes/admin.routes'
 import enrollRouter from './routes/addmission.routes'
 import financeRouter from './routes/finance.routes'
 import studentRouter from './routes/student.routes'
+import permissionRouter from './routes/permission.routes'
 
 // Routes
 app.use('/api/v1/auth/', userRouter);
@@ -28,3 +29,4 @@ app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/addmission', enrollRouter);
 app.use('/api/v1/finance', financeRouter);
 app.use('/api/v1/student', studentRouter);
+app.use('/api/v1/permission', permissionRouter)

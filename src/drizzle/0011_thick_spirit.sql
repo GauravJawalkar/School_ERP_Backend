@@ -1,0 +1,1 @@
+ALTER TABLE "rolesTable" ALTER COLUMN "createdBy" DROP DEFAULT;
