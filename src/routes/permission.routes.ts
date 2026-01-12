@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
-import { addSpecificPermissionsToRole, assignCustomRole } from "../controllers/permissions.controller";
+import { addSpecificPermissionsToRole, assignCustomRole, updateRoleName } from "../controllers/permissions.controller";
 
 const router = Router();
 
@@ -19,6 +19,14 @@ router
         authenticateUser,
         checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
         addSpecificPermissionsToRole
+    )
+
+router
+    .route('/edit')
+    .patch(
+        authenticateUser,
+        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
+        updateRoleName
     )
 
 export default router

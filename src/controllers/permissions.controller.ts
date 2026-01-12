@@ -246,4 +246,67 @@ const addSpecificPermissionsToRole = async (req: Request, res: Response) => {
     }
 }
 
-export { assignCustomRole, addSpecificPermissionsToRole }
+const updateRoleName = async (req: Request, res: Response) => {
+    try {
+        const { roleId, newRoleName } = req.body;
+        const { instituteId, roles } = await getLoggedInUserDetails(req);
+        if (!roleId || !newRoleName || newRoleName.trim() === "") {
+            return res.status(400).json({
+                message: "Please provide all the required fields",
+                status: 400
+            })
+        }
+
+        const isAllowedToUpdateRole = roles.includes('SUPER_ADMIN') || roles.includes('SCHOOL_ADMIN');
+
+        if (!isAllowedToUpdateRole) {
+            return res.status(401).json({
+                message: "Action Denied. You are not allowed to update role names",
+                status: 401
+            })
+        }
+
+        const [existingRole] = await db
+            .select()
+            .from(rolesTable)
+            .where(
+                and(
+                    eq(rolesTable.id, roleId),
+                    eq(rolesTable.instituteId, instituteId)
+                )
+            ).limit(1);
+
+
+        if (!existingRole) {
+            return res.status(404).json({
+                message: "Role not found",
+                status: 404
+            })
+        }
+
+        await db
+            .update(rolesTable)
+            .set({
+                name: newRoleName
+            })
+            .where(
+                and(
+                    eq(rolesTable.id, roleId),
+                    eq(rolesTable.instituteId, instituteId)
+                )
+            ).returning();
+
+        return res.status(200).json({
+            message: "Role name updated successfully",
+            status: 200
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal Server Error updating role name",
+            status: 500
+        })
+    }
+}
+
+export { assignCustomRole, addSpecificPermissionsToRole, updateRoleName }
