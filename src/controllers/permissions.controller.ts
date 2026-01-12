@@ -1,30 +1,22 @@
 import type { Request, Response } from "express";
 import type { TokenUser } from "../interface";
 import { db } from "../db";
-import { instituteProfileTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
+import { instituteProfileTable, permissionsTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
+import { getLoggedInUserDetails } from "../services/auth.service";
 
-
-// STEPS: Permissions are totally based on the roles so need to figure out a way where i can assign specific permisssions
-// 1. Create a custom role (instituteLevel which is not a systemRole)
-// 2. Then get all the permissions that you need for this specific user
-// 3. Check of he/she is not getting the any critical permission that are critical
-// 4. Create the role and then assign permissions to the user 
-
-//TODO
-// 1. The role must have an expiry like after some time or a specific time it will get expired and then the user cannot just have the permissions
-// 2. If i try to asign new Role to the same user again what should be the flow ? Need to figure it out
+//Next Features to add
+// 1. The role must have an expiry like after some time or a specific time it will get expired and then the user cannot just have the permissions (Future Feature)
 
 const assignCustomRole = async (req: Request, res: Response) => {
     try {
 
         const { userId, permissions, roleName, expiryDate } = req.body;
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
-        const loggedInUserRoles = loggedInUser?.roles;
+
+        const { instituteId, roles, loggedInUserId } = await getLoggedInUserDetails(req);
 
         // Double check after the checkUserRole Middleware
-        const isAllowedToAssignRole = loggedInUserRoles.includes('SUPER_ADMIN') || loggedInUserRoles.includes('SCHOOL_ADMIN');
+        const isAllowedToAssignRole = roles.includes('SUPER_ADMIN') || roles.includes('SCHOOL_ADMIN');
 
         if (!isAllowedToAssignRole) {
             return res.status(401).json({
@@ -94,7 +86,7 @@ const assignCustomRole = async (req: Request, res: Response) => {
                 name: roleName,
                 instituteId: instituteId,
                 description: `Custom role created for user ${userId} with specific permissions`,
-                createdBy: loggedInUser?.id,
+                createdBy: loggedInUserId,
                 expiryDate: expiry,
                 isSystemRole: false,
             })
@@ -149,4 +141,109 @@ const assignCustomRole = async (req: Request, res: Response) => {
     }
 }
 
-export { assignCustomRole }
+const addSpecificPermissionsToRole = async (req: Request, res: Response) => {
+    try {
+        const { userId, permissions } = req.body;
+        const { instituteId, roles } = await getLoggedInUserDetails(req);
+
+        if (!userId || userId.trim() === "") {
+            return res.status(400).json({
+                message: "Please provide all the required fields",
+                status: 400
+            })
+        }
+
+        if (!Array.isArray(permissions) || permissions.length === 0) {
+            return res.status(400).json({
+                message: "Please provide permissions that has to be assigned",
+                status: 400
+            })
+        }
+
+        const uniquePermissions: number[] = [...new Set(permissions)];
+        const isAllowedToAssignRole = roles.includes('SUPER_ADMIN') || roles.includes('SCHOOL_ADMIN');
+
+        if (!isAllowedToAssignRole) {
+            return res.status(401).json({
+                message: "Action Denied. You are not allowed to assign any permissions",
+                status: 401
+            })
+        }
+
+
+        const [existingUser] = await db
+            .select()
+            .from(usersTable)
+            .where(
+                and(
+                    eq(usersTable.id, userId),
+                    eq(usersTable.instituteId, instituteId)
+                )
+            ).limit(1);
+
+        if (!existingUser) {
+            return res.status(404).json({
+                message: "User not found",
+                status: 404
+            })
+        }
+
+        // Fetch users role and permissions
+        const userRolesWithPermissions = await db.select({
+            roleId: rolesTable.id,
+            roleName: rolesTable.name,
+            permissionId: permissionsTable.id,
+            permissionSlug: permissionsTable.slug,
+            permissionModule: permissionsTable.module
+        }).from(userRoleTable)
+            .innerJoin(rolesTable, eq(userRoleTable.roleId, rolesTable.id))
+            .innerJoin(rolePermissionTable, eq(rolesTable.id, rolePermissionTable.roleId))
+            .innerJoin(permissionsTable, eq(rolePermissionTable.permissionId, permissionsTable.id))
+            .where(eq(userRoleTable.userId, userId));
+
+        const roleId = Number(userRolesWithPermissions?.[0]?.roleId);
+
+        // Extract unique permissions (since a user might have multiple roles with overlapping permissions)
+        const existingPermissions: number[] = [...new Set(userRolesWithPermissions.map(item => item.permissionId))];
+
+        // find permissions that are NOT already assigned
+        const newPermissions = [...uniquePermissions].filter(
+            permissionId => !existingPermissions.includes(permissionId)
+        );
+
+        if (newPermissions.length === 0) {
+            return res.status(200).json({
+                message: "These permissions are already assigned",
+                status: 200
+            });
+        }
+
+        // Add new Permissions
+        await db.
+            transaction(
+                async (tx) => {
+                    return await tx.insert(rolePermissionTable)
+                        .values(
+                            newPermissions?.map((permissionId: number) => ({
+                                roleId: roleId,
+                                permissionId: permissionId
+                            }))
+                        )
+                        .returning();
+                });
+
+        return res.status(201).json({
+            message: "New permissions assigned successfully",
+            addedPermissions: newPermissions,
+            status: 201
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal Server Error adding permission",
+            status: 500
+        })
+    }
+}
+
+export { assignCustomRole, addSpecificPermissionsToRole }

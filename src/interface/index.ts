@@ -41,6 +41,7 @@ export interface TokenUser {
     gender?: 'MALE' | 'FEMALE' | 'OTHER';
     instituteId: string | number;
     phone: string;
+    isActive?: boolean;
     profileImage: string;
     permissions: string[];
     roles: string[]
