@@ -17,6 +17,9 @@
   },
   "scripts": {
     "dev": "bun --watch --env-file=.env src/app.ts",
+    "studio": "bunx drizzle-kit studio",
+    "d:generate": "bunx drizzle-kit generate",
+    "d:push": "bunx drizzle-kit push",
     "seed-permissions": "bun src/scripts/seed.permissions.ts",
     "seed-role-permissions": "bun src/scripts/seed.role-permissions.ts",
     "seed-roles": "bun src/scripts/seed.roles.ts",

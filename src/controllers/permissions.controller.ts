@@ -149,4 +149,4 @@ const assignCustomRole = async (req: Request, res: Response) => {
     }
 }
 
-export { assignCustomRole };
+export { assignCustomRole }
