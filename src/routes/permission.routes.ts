@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
-import { addSpecificPermissionsToRole, assignCustomRole, updateRoleName } from "../controllers/permissions.controller";
+import { addSpecificPermissionsToRole, assignCustomRole, removeSpecificPermissionsFromRole, updateRoleName } from "../controllers/permissions.controller";
+import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 
 const router = Router();
 
@@ -27,6 +28,15 @@ router
         authenticateUser,
         checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
         updateRoleName
+    )
+
+router
+    .route('/remove')
+    .put(
+        authenticateUser,
+        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
+        checkUserPersmission(['user.assign_role', 'role.update', 'role.create']),
+        removeSpecificPermissionsFromRole
     )
 
 export default router

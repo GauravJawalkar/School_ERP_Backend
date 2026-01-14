@@ -309,4 +309,15 @@ const updateRoleName = async (req: Request, res: Response) => {
     }
 }
 
-export { assignCustomRole, addSpecificPermissionsToRole, updateRoleName }
+const removeSpecificPermissionsFromRole = async (req: Request, res: Response) => {
+    try {
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal Server Error removing permission",
+            status: 500
+        })
+    }
+}
+
+export { assignCustomRole, addSpecificPermissionsToRole, updateRoleName, removeSpecificPermissionsFromRole }
