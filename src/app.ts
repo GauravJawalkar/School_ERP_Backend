@@ -1,6 +1,7 @@
 import express from "express"
 import cookieParser from "cookie-parser";
 import cors from 'cors'
+import mongoSanitize from 'express-mongo-sanitize'
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -11,7 +12,13 @@ app.listen(PORT, () => { console.log(`🚀 Server running on http://localhost:${
 // Middlewares
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true,
+    optionsSuccessStatus: 200
+}));
+// Prevent NoSQL injection
+app.use(mongoSanitize());
 
 // Specific controllers imports
 import userRouter from './routes/auth.route';

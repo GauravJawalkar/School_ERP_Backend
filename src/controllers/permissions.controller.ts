@@ -1,9 +1,8 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
 import { instituteProfileTable, permissionsTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getLoggedInUserDetails } from "../services/auth.service";
-import { schoolAdmin, superAdmin } from "../constants/auth.constants";
 
 //Next Features to add
 // 1. The role must have an expiry like after some time or a specific time it will get expired and then the user cannot just have the permissions (Future Feature)
