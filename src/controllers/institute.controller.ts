@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
 import type { TokenUser } from "../interface";
+import { getLoggedInUserDetails } from "../services/auth.service";
 
 const createSchool = async (req: Request, res: Response) => {
     try {
@@ -77,8 +78,7 @@ const createSchool = async (req: Request, res: Response) => {
 
 const createSchoolAdmin = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { firstName, lastName, email, phone, gender, password, isActive, roleName } = req.body;
 
         if ([firstName, lastName, email, phone, gender, password, roleName].some(field => field.trim() === "" || !field)) {
@@ -163,8 +163,7 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
 const createSchoolClass = async (req: Request, res: Response) => {
     try {
         const { className, academicYearId, capacity } = req.body;
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
 
         if (!instituteId || !className || !academicYearId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 })
@@ -245,8 +244,7 @@ const createClassSection = async (req: Request, res: Response) => {
 
 const createSubject = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { name, code, type, description, isActive } = req.body;
 
         if (!instituteId || !name || !type) {
@@ -354,8 +352,7 @@ const createClassSubject = async (req: Request, res: Response) => {
 
 const allocateTeacherToSubject = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { academicYearId, classId, sectionId, subjectId, staffId } = req.body;
 
         if (!academicYearId || !classId || !sectionId || !subjectId || !staffId || !instituteId) {

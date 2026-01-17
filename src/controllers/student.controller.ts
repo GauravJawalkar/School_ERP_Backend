@@ -1,15 +1,14 @@
 import type { Request, Response } from "express";
-import type { TokenUser } from "../interface";
 import { db } from "../db";
 import { admissionsTable, instituteProfileTable, parentsTable, sectionsTable, studentsTable } from "../models";
 import { and, asc, eq } from "drizzle-orm";
 import { promoteSingleStudent, type PromotionType } from "../services/promotion.service";
 import { getNextYearClass, getSameLevelNextYearClass } from "../utils/promotion.utils";
+import { getLoggedInUserDetails } from "../services/auth.service";
 
 const getStuentsForSchool = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
 
         if (!instituteId || isNaN(instituteId)) {
             return res.status(400).json({
@@ -62,8 +61,7 @@ const getStuentsForSchool = async (req: Request, res: Response) => {
 const getStudentProfile = async (req: Request, res: Response) => {
     try {
         const studentId = Number(req.params.studentId);
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
 
         if (!studentId || isNaN(studentId) || !instituteId || isNaN(instituteId)) {
             return res.status(400).json({
@@ -111,11 +109,10 @@ const getStudentProfile = async (req: Request, res: Response) => {
 const getStudentsByClassOrSection = async (req: Request, res: Response) => {
     try {
         const { classId, sectionId } = req.params;
-        const loggedInUser = req.user as TokenUser;
-        const targetInstituteId = Number(loggedInUser.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
 
         const filters = [
-            eq(studentsTable.instituteId, targetInstituteId),
+            eq(studentsTable.instituteId, instituteId),
             eq(studentsTable.status, 'ACTIVE')
         ];
 
@@ -246,8 +243,7 @@ const transferStudent = async (req: Request, res: Response) => {
 const updateStudent = async (req: Request, res: Response) => {
     try {
         const studentId = Number(req.params.studentId);
-        const loggedInUser = req.user as TokenUser;
-        const targetInstituteId = Number(loggedInUser.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
 
         const {
             firstName,
@@ -265,7 +261,7 @@ const updateStudent = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(studentsTable.id, studentId),
-                    eq(studentsTable.instituteId, targetInstituteId)
+                    eq(studentsTable.instituteId, instituteId)
                 )
             ).limit(1);
 
@@ -290,7 +286,7 @@ const updateStudent = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(studentsTable.id, studentId),
-                    eq(studentsTable.instituteId, targetInstituteId),
+                    eq(studentsTable.instituteId, instituteId),
                 )
             ).returning();
 

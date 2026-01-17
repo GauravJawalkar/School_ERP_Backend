@@ -4,12 +4,12 @@ import { feeHeadsTable, feeInstallmentsTable, feeStructuresTable, invoiceLineIte
 import { and, eq, sql } from "drizzle-orm";
 import { generateInvoiceNumber } from "../helpers/generateInvoiceNumber";
 import type { TokenUser } from "../interface";
+import { getLoggedInUserDetails } from "../services/auth.service";
 
 // This controller creates a type of fee for a particular institute eg: Tution fee , transport fee, etc
 const createFeeHead = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { feeName, feeType, description, taxPercentage } = req.body;
 
         if (!instituteId || !feeName || !feeType) {
@@ -69,8 +69,7 @@ const createFeeHead = async (req: Request, res: Response) => {
 // This controller creates feeStructure as per individual class for the institute
 const createFeeStructure = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { academicYearId, classId, feeHeadId, amount, frequency, isCompulsory } = req.body;
 
         if (!academicYearId || !classId || !instituteId || !feeHeadId || !amount || !frequency) {
@@ -134,8 +133,7 @@ const createFeeStructure = async (req: Request, res: Response) => {
 // After enrollment of student, auto-assign compulsory fees -> DONE (Keeping this one incase of manual assignment)
 const assignFees = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { classId, discountPercentage, discountReason, isWaived, waivedReason, academicYearId } = req.body;
 
         const studentId = Number(req.params.id);
@@ -266,8 +264,7 @@ const assignFees = async (req: Request, res: Response) => {
 // This controller creates feeInstallments like quartely, yearly,halfYear for specific institute
 const createFeeInstallment = async (req: Request, res: Response,) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const { academicYearId, name, installmentNumber, dueDate, lateFeeStartDate, finePerDay } = req.body;
 
         if (!academicYearId || !name || !installmentNumber || !dueDate || !finePerDay || !instituteId) {

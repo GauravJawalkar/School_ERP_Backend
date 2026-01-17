@@ -5,12 +5,12 @@ import { and, eq } from "drizzle-orm";
 import type { BankDetails, TokenUser } from "../interface";
 import bcrypt from "bcrypt";
 import { staffTable, teacherProfileTable } from "../models/staff/staff.model";
+import { getLoggedInUserDetails } from "../services/auth.service";
 
 const createAcademicYear = async (req: Request, res: Response) => {
     try {
         const { name, startDate, endDate, isActive } = req.body;
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
 
         // Validation
         if (!name || !startDate || !endDate || !instituteId) {
@@ -91,8 +91,7 @@ const createStaff = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, email, phone, gender, password, isActive, roleName, employeeCode, designation, joiningDate, salaryBasic, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankBranchName, bankAccType, upiId } = req.body;
 
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
 
         if ([firstName, lastName, instituteId, email, phone, gender, password, roleName, employeeCode, designation, joiningDate, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankAccType,].some((field) => !field || field.trim() === "")
         ) {
@@ -254,8 +253,7 @@ const createStaff = async (req: Request, res: Response) => {
 
 const getStaffByInstitute = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
 
         if (!instituteId) {
             return res.status(400).json({
@@ -287,8 +285,7 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
 
 const getAcademicYears = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
 
         if (!instituteId) {
             return res.status(400).json({

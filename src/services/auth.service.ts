@@ -11,5 +11,4 @@ export async function getLoggedInUserDetails(req: Request) {
     const isSuperAdmin = roles.includes(superAdmin);
     const isSchoolAdmin = roles?.includes(schoolAdmin)
     return { instituteId, roles, loggedInUserId, isloggedInUserActive, isSuperAdmin, isSchoolAdmin }
-
 }

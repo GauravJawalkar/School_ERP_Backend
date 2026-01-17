@@ -5,11 +5,11 @@ import { and, eq } from "drizzle-orm";
 import bcrypt from 'bcrypt'
 import type { TokenUser } from "../interface";
 import { sendFirstTimeCredentialsEmail } from "../helpers/firstTimeLoginEmail";
+import { getLoggedInUserDetails } from "../services/auth.service";
 
 const createAddmission = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
         const { academicYearId, admissionDate, name, board, parentPhoneNo, applicationStatus, classId } = req.body;
 
         if (!academicYearId || !admissionDate || !instituteId || !name || !board || !parentPhoneNo || !classId) {
@@ -63,8 +63,7 @@ const createAddmission = async (req: Request, res: Response) => {
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
         const { firstName, lastName, email, phone, gender, DOB, fatherName, motherName, address } = req.body;
         const roleName = "STUDENT";
 
@@ -374,8 +373,7 @@ const approveAddmission = async (req: Request, res: Response) => {
 // update the addmission status
 const updateAddmissionStatus = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
         const { status, addmissionId } = req.body;
 
         if (!status || !addmissionId || !instituteId) {
@@ -439,8 +437,7 @@ const updateAddmissionStatus = async (req: Request, res: Response) => {
 const deleteAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.addmissionId);
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
 
         if (!addmissionId || !instituteId) {
             return res.status(400).json({
@@ -510,7 +507,7 @@ const deleteAddmission = async (req: Request, res: Response) => {
 const softDeleteAddmission = async (req: Request, res: Response) => {
     try {
         const admissionId = Number(req.params.admissionId);
-        const { instituteId, id: userId } = req.user as TokenUser;
+        const { instituteId, loggedInUserId: userId } = await getLoggedInUserDetails(req);
         const { reason } = req.body || "none";
         const numInstituteId = Number(instituteId);
 
@@ -599,8 +596,7 @@ const softDeleteAddmission = async (req: Request, res: Response) => {
 const restoreAdmission = async (req: Request, res: Response) => {
     try {
         const admissionId = Number(req.params.admissionId);
-        const { instituteId } = req.user as TokenUser;
-        const numInstituteId = Number(instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
 
         if (!admissionId || !instituteId) {
             return res.status(400).json({
@@ -615,7 +611,7 @@ const restoreAdmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, admissionId),
-                    eq(admissionsTable.instituteId, numInstituteId),
+                    eq(admissionsTable.instituteId, instituteId),
                     eq(admissionsTable.isDeleted, true)
                 )
             )
@@ -665,8 +661,7 @@ const restoreAdmission = async (req: Request, res: Response) => {
 // This will get all approved admissions for an institute in a particular academic year
 const getAllAddmissions = async (req: Request, res: Response) => {
     try {
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req);
         const yearId = Number(req.params.yearId);
 
         if (!instituteId || !yearId) {
@@ -700,9 +695,7 @@ const getAllAddmissions = async (req: Request, res: Response) => {
 
 const getAddmission = async (req: Request, res: Response) => {
     try {
-
-        const loggedInUser = req.user as TokenUser;
-        const instituteId = Number(loggedInUser?.instituteId);
+        const { instituteId } = await getLoggedInUserDetails(req)
         const addmissionId = Number(req.params.addmissionId);
 
         if (!addmissionId || !instituteId) {
