@@ -36,7 +36,6 @@
     "cors": "^2.8.5",
     "drizzle-orm": "^0.44.7",
     "express": "^5.1.0",
-    "express-mongo-sanitize": "^2.2.0",
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",

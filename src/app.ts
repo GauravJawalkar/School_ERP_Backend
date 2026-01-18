@@ -1,7 +1,6 @@
 import express from "express"
 import cookieParser from "cookie-parser";
 import cors from 'cors'
-import mongoSanitize from 'express-mongo-sanitize'
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -17,8 +16,6 @@ app.use(cors({
     credentials: true,
     optionsSuccessStatus: 200
 }));
-// Prevent NoSQL injection
-app.use(mongoSanitize());
 
 // Specific controllers imports
 import userRouter from './routes/auth.route';
@@ -30,7 +27,7 @@ import studentRouter from './routes/student.routes'
 import permissionRouter from './routes/permission.routes'
 
 // Routes
-app.use('/api/v1/auth/', userRouter);
+app.use('/api/v1/auth', userRouter);
 app.use('/api/v1/institute', schoolRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/addmission', enrollRouter);
