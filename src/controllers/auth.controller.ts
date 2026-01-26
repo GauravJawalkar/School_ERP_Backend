@@ -180,8 +180,8 @@ const loginUser = async (req: Request, res: Response) => {
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: true,
-            sameSite: "strict",
+            secure: false, // TODO: Set to true for the hosted production next js frontend app
+            sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
