@@ -180,13 +180,28 @@ const loginUser = async (req: Request, res: Response) => {
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: false, // TODO: Set to true for the hosted production next js frontend app
+            secure: false, // TODO: Set to true for the hosted production next js frontend app("https")
             sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
+        const userData = {
+            id: user?.id,
+            email: user?.email,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            profileImage: user?.profileImage,
+            instituteId: user?.instituteId,
+            phone: user?.phone,
+            gender: user?.gender,
+            lastLogin: user?.lastLogin,
+            isActive: user?.isActive,
+            createdAt: user?.createdAt,
+            updatedAt: user?.updatedAt
+        }
+
         // Adding the accessToken to the userDetails which will further help the middleware
-        const userDetails = { ...user, accessToken, roles, permissions };
+        const userDetails = { ...userData, accessToken, roles, permissions };
 
         return res.status(200).json({ message: "Logged In", user: userDetails });
 
