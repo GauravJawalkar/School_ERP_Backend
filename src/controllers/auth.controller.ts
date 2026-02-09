@@ -219,6 +219,41 @@ const forgotPassword = async (req: Request, res: Response) => {
             return res.status(400).json({ status: 400, message: "Email is required" });
         }
 
+        const [user] = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.email, email));
+
+        if (!user) {
+            return res.status(404).json({ status: 404, message: "User with this email not found" });
+        }
+
+        // Check if there's an existing, non-expired reset request
+        const [existingRequest] = await db
+            .select()
+            .from(resetPasswordTable)
+            .where(eq(resetPasswordTable.userId, user.id))
+            .limit(1);
+
+        if (existingRequest) {
+            const now = new Date();
+            const expiresAt = new Date(existingRequest?.expiresAt);
+
+            // If the existing request hasn't expired yet
+            if (expiresAt > now) {
+                return res.status(400).json({
+                    status: 409,
+                    message: "Check OTP on email. Valid until " + expiresAt.toLocaleString()
+                });
+            }
+
+            // If expired, delete the old request before creating a new one
+            await db
+                .delete(resetPasswordTable)
+                .where(eq(resetPasswordTable.userId, user.id));
+        }
+
+        // Send the email (which should also create the reset password record)
         const response = await sendEmail(email, "forgotPassword", res);
 
         if (!response) {
