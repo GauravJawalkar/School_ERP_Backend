@@ -6,11 +6,11 @@ const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET!
 
 
 const generateAccessToken = (user: TokenUser) => {
-    return jwt.sign(user, accessTokenSecret, { expiresIn: '1m' })
+    return jwt.sign(user, accessTokenSecret, { expiresIn: '1d' })
 }
 
 const generateRefreshToken = (user: TokenUser) => {
-    return jwt.sign(user, refreshTokenSecret, { expiresIn: '1d' })
+    return jwt.sign(user, refreshTokenSecret, { expiresIn: '7d' })
 }
 
 
