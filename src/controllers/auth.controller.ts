@@ -182,7 +182,7 @@ const loginUser = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: false, // TODO: Set to true for the hosted production next js frontend app("https")
             sameSite: "lax",
-            maxAge: 60 * 60 * 24 // 1 day
+            maxAge: 60 * 60 * 24 * 1000 // 1 day
         });
 
         res.cookie("refreshToken", refreshToken, {
