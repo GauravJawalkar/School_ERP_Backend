@@ -7,6 +7,7 @@ import bcrypt from 'bcrypt'
 import { generateAccessToken, generateRefreshToken } from "../helpers/tokenGenerator";
 import type { TokenUser } from "../interface";
 import { sendEmail } from "../helpers/emailSender";
+import jwt from "jsonwebtoken";
 
 const signupUser = async (req: Request, res: Response) => {
     try {
@@ -182,7 +183,8 @@ const loginUser = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: false, // TODO: Set to true for the hosted production next js frontend app("https")
             sameSite: "lax",
-            maxAge: 60 * 60 * 24 * 1000 // 1 day
+            // maxAge: 60 * 60 * 24 * 1000 // 1 day
+            maxAge: 2 * 60 * 1000 // 2 minutes testing
         });
 
         res.cookie("refreshToken", refreshToken, {
@@ -322,4 +324,84 @@ const resetPassword = async (req: Request, res: Response) => {
     }
 }
 
-export { signupUser, loginUser, forgotPassword, resetPassword }
+const refreshToken = async (req: Request, res: Response) => {
+    try {
+        // STEP 1: Extract token from Authorization header
+        const tokenHeader = req.headers.authorization;
+
+        if (!tokenHeader) {
+            return res.status(401).json({
+                message: "Unauthorized: Please Login",
+                status: 401
+            });
+        }
+
+        // STEP 2: Validate Bearer token format
+        if (!tokenHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                message: "Invalid token format. Token must start with 'Bearer '",
+                status: 401
+            });
+        }
+
+        // STEP 3: Extract token from "Bearer <token>"
+        const refreshToken = tokenHeader.split(" ")[1]?.trim();
+
+        if (!refreshToken) {
+            return res.status(401).json({
+                message: "RefreshToken is missing",
+                status: 401
+            });
+        }
+
+        if (!process.env.REFRESH_TOKEN_SECRET) {
+            return res.status(500).json({
+                message: "REFRESH_TOKEN_SECRET is not configured",
+                status: 500
+            });
+        }
+
+        if (!refreshToken) {
+            return res.status(401).json({ status: 401, message: "Refresh token not found. Please login again." });
+        }
+
+        const user = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!) as TokenUser;
+
+        // Create payload for new access token
+        const payload: TokenUser = {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            gender: user.gender,
+            instituteId: user.instituteId,
+            phone: user.phone,
+            profileImage: user.profileImage || "",
+            permissions: user.permissions,
+            roles: user.roles
+        };
+
+        const newAccessToken = generateAccessToken(payload);
+
+        res.setHeader("Authorization", `Bearer ${newAccessToken}`);
+
+        res.cookie("accessToken", newAccessToken, {
+            httpOnly: true,
+            secure: false, // TODO: Set to true for the hosted production next js frontend app("https")
+            sameSite: "lax",
+            // maxAge: 60 * 60 * 24 * 1000 // 1 day
+            maxAge: 2 * 60 * 1000 // 2 minutes testing
+        });
+
+        // Attach user to request object
+        req.user = user;
+
+        return res.status(200).json({ status: 200, message: "Access token refreshed successfully", accessToken: newAccessToken });
+
+    } catch (error) {
+        console.error("Error in refreshToken controller :", error);
+        return res.status(500).json({ status: 500, message: "Internal Server Error Refreshing Access Token" });
+    }
+}
+
+export { signupUser, loginUser, forgotPassword, resetPassword, refreshToken }
