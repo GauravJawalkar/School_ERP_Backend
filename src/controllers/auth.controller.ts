@@ -169,6 +169,10 @@ const loginUser = async (req: Request, res: Response) => {
             )
         ).limit(1);
 
+        if (!instituteDetails) {
+            return res.status(404).json({ message: "Institute details not found or the institute is not active", status: 404 });
+        }
+
         // Create accessToken and refreshToken
         const payload: TokenUser = {
             id: user?.id,
