@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { permissionsTable, resetPasswordTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
-import { eq } from "drizzle-orm";
+import { instituteProfileTable, permissionsTable, resetPasswordTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
+import { and, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from 'bcrypt'
 import { generateAccessToken, generateRefreshToken } from "../helpers/tokenGenerator";
@@ -162,6 +162,13 @@ const loginUser = async (req: Request, res: Response) => {
         // Extract unique roles
         const roles = [...new Set(userRolesWithPermissions.map(item => item.roleName))];
 
+        const [instituteDetails] = await db.select().from(instituteProfileTable).where(
+            and(
+                eq(instituteProfileTable.id, user?.instituteId),
+                eq(instituteProfileTable.status, "ACTIVE")
+            )
+        ).limit(1);
+
         // Create accessToken and refreshToken
         const payload: TokenUser = {
             id: user?.id,
@@ -201,6 +208,7 @@ const loginUser = async (req: Request, res: Response) => {
             lastName: user?.lastName,
             profileImage: user?.profileImage,
             instituteId: user?.instituteId,
+            instituteDetails: instituteDetails,
             phone: user?.phone,
             gender: user?.gender,
             lastLogin: user?.lastLogin,
