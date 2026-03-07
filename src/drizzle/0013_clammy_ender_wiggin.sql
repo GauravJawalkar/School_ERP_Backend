@@ -1,0 +1,1 @@
+ALTER TABLE "instituteProfileTable" ALTER COLUMN "slug" DROP NOT NULL;

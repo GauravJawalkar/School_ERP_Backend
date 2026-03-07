@@ -6,6 +6,7 @@ export const instituteStatusEnum = pgEnum('status', ['ACTIVE', 'INACTIVE', 'SUSP
 export const instituteProfileTable = pgTable('instituteProfileTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     schoolName: varchar("schoolName", { length: 255 }).notNull().unique(),
+    slug: varchar('slug', { length: 255 }).unique().notNull(),
     affiliationNumber: varchar("affiliationNumber").notNull().unique(),
     status: instituteStatusEnum('status').default('ACTIVE').notNull(),
     address: varchar("address").notNull(),
