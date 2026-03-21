@@ -10,9 +10,9 @@ import { slugify } from "../helpers/slugifyDeslugify";
 
 const createSchool = async (req: Request, res: Response) => {
     try {
-        const { schoolName, affiliationNumber, address, main_phone, primaryEmail, office_hours_Mon_Fri, office_hours_Sat, office_hours_Sun, website, landmark, area, city, state, pincode, } = req.body;
+        const { schoolName, affiliationNumber, address, main_phone, primaryEmail, office_hours_Mon_Fri, office_hours_Sat, office_hours_Sun = "Off", website, landmark, area, city, state, pincode, } = req.body;
 
-        if ([schoolName, affiliationNumber, address, main_phone, primaryEmail, office_hours_Mon_Fri, office_hours_Sat, office_hours_Sun, website, landmark, area, city, state, pincode].some(field => field.trim() === "" || !field)) {
+        if ([schoolName, affiliationNumber, address, main_phone, primaryEmail, office_hours_Mon_Fri, office_hours_Sat, website, landmark, city, state, pincode].some(field => field.trim() === "" || !field)) {
             return res.json({ status: 400, message: "Missing required fields" }).status(400);
         }
 
@@ -57,6 +57,8 @@ const createSchool = async (req: Request, res: Response) => {
         if (!logoImage) {
             return res.status(500).json({ status: 500, message: "Failed to upload logo image" });
         }
+
+        console.log("Running222");
 
         const [newInstitute] = await db.insert(instituteProfileTable).values({
             schoolName,
