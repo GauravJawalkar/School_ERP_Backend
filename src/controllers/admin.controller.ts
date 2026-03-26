@@ -313,7 +313,23 @@ const getAcademicYears = async (req: Request, res: Response) => {
     }
 }
 
-export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears };
+// Getting all school Admins for superAdmin
+const getSchoolAdmins = async (req: Request, res: Response) => {
+    try {
+        const { roles } = await getLoggedInUserDetails(req);
+
+        
+
+    } catch (error) {
+        console.error("Error fetching staff by school: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error fetching admins by school",
+            status: 500,
+        });
+    }
+}
+
+export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getSchoolAdmins };
 
 
 // TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)
