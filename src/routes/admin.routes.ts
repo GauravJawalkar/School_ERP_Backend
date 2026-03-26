@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createAcademicYear, createStaff, getAcademicYears, getStaffByInstitute } from "../controllers/admin.controller";
+import { createAcademicYear, createStaff, getAcademicYears, getSchoolAdmins, getStaffByInstitute } from "../controllers/admin.controller";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
@@ -39,6 +39,14 @@ router
         authenticateUser,
         checkUserPersmission(['academic_year.view']),
         getAcademicYears
+    )
+
+router
+    .route('/allAdmins')
+    .get(
+        authenticateUser,
+        checkUserRoles(['SUPER_ADMIN']),
+        getSchoolAdmins
     )
 
 export default router

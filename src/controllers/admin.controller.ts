@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { academicYearsTable, rolesTable, userRoleTable, usersTable } from "../models";
+import { academicYearsTable, instituteProfileTable, rolesTable, userRoleTable, usersTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import type { BankDetails, TokenUser } from "../interface";
 import bcrypt from "bcrypt";
@@ -318,14 +318,94 @@ const getSchoolAdmins = async (req: Request, res: Response) => {
     try {
         const { roles } = await getLoggedInUserDetails(req);
 
-        
+        if (!roles.includes('SUPER_ADMIN')) {
+            return res.status(401).json({ message: "Unauthorized", status: 401 });
+        }
+
+        const [schoolAdminRole] = await db
+            .select({ id: rolesTable.id })
+            .from(rolesTable)
+            .where(
+                and(
+                    eq(rolesTable.name, 'SCHOOL_ADMIN'),
+                    eq(rolesTable.isSystemRole, true)
+                )
+            )
+            .limit(1);
+
+        if (!schoolAdminRole) {
+            return res.status(404).json({ message: "SCHOOL_ADMIN role not found", status: 404 });
+        }
+
+        const schoolAdmins = await db
+            .select({
+                userId: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                isActive: usersTable.isActive,
+                schoolId: instituteProfileTable.id,
+                schoolInfo: instituteProfileTable.contactInfo,
+                schoolName: instituteProfileTable.schoolName,
+                affiliationNumber: instituteProfileTable.affiliationNumber,
+                schoolSlug: instituteProfileTable.slug,
+                schoolStatus: instituteProfileTable.status,
+                assignedAt: userRoleTable.assignedAt,
+            })
+            .from(instituteProfileTable)
+            .leftJoin(userRoleTable, eq(userRoleTable.roleId, schoolAdminRole.id)) // ← only SCHOOL_ADMIN role rows
+            .leftJoin(usersTable,
+                and(
+                    eq(userRoleTable.userId, usersTable.id),
+                    eq(usersTable.instituteId, instituteProfileTable.id) // ← admin must belong to THIS school
+                )
+            );
+
+        if (schoolAdmins.length === 0) {
+            return res.status(404).json({ message: "No school admins found", status: 404 });
+        }
+
+        // Group by school
+        const grouped = schoolAdmins.reduce((acc, row) => {
+            const key = row.schoolId;
+            if (!acc[key]) {
+                acc[key] = {
+                    schoolId: row.schoolId,
+                    schoolName: row.schoolName,
+                    schoolSlug: row.schoolSlug,
+                    schoolStatus: row.schoolStatus,
+                    schoolInfo: row.schoolInfo,
+                    affiliationNumber: row.affiliationNumber,
+                    admins: []
+                };
+            }
+
+            // Only push if an actual admin exists for this school
+            if (row.userId) {
+                acc[key].admins.push({
+                    userId: row.userId,
+                    firstName: row.firstName,
+                    lastName: row.lastName,
+                    email: row.email,
+                    phone: row.phone,
+                    isActive: row.isActive,
+                    assignedAt: row.assignedAt,
+                });
+            }
+
+            return acc;
+        }, {} as Record<number, any>);
+
+        return res.status(200).json({
+            message: "School admins fetched successfully",
+            data: Object.values(grouped),
+            status: 200
+        });
 
     } catch (error) {
-        console.error("Error fetching staff by school: ", error);
-        return res.status(500).json({
-            message: "Internal Server Error fetching admins by school",
-            status: 500,
-        });
+        console.error("Error fetching school admins:", error);
+        return res.status(500).json({ message: "Internal Server Error", status: 500 });
     }
 }
 
