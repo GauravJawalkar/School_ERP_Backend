@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { db } from "../db";
-import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
-import { and, eq } from "drizzle-orm";
+import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
+import { and, countDistinct, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
 import type { TokenUser } from "../interface";
@@ -436,4 +436,46 @@ const allocateTeacherToSubject = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject }
+// TODO: Create the plan , revenue tables and link it with the institutesTable id and then send it in the below API
+const getAllSchools = async (req: Request, res: Response) => {
+    try {
+        const { roles } = await getLoggedInUserDetails(req);
+
+        if (!roles.includes('SUPER_ADMIN')) {
+            return res.status(401).json({ message: "Unauthorized User", status: 401 })
+        }
+
+        const getAllSchools = await db
+            .select({
+                // Institute fields
+                schoolId: instituteProfileTable.id,
+                schoolName: instituteProfileTable.schoolName,
+                schoolSlug: instituteProfileTable.slug,
+                affiliationNumber: instituteProfileTable.affiliationNumber,
+                schoolStatus: instituteProfileTable.status,
+                address: instituteProfileTable.address,
+                schoolInfo: instituteProfileTable.contactInfo,
+                createdAt: instituteProfileTable.createdAt,
+                // Counts
+                totalStudents: countDistinct(studentsTable.id),
+                totalStaff: countDistinct(staffTable.id),
+            })
+            .from(instituteProfileTable)
+            .leftJoin(studentsTable, eq(studentsTable.instituteId, instituteProfileTable.id))
+            .leftJoin(staffTable, eq(staffTable.instituteId, instituteProfileTable.id))
+            .groupBy(instituteProfileTable.id);
+
+        if (getAllSchools?.length === 0) {
+            return res.status(200).json({ message: "No Schools Found", data: getAllSchools, status: 200 })
+        }
+
+        return res.status(200).json({ message: "Fetched All Schools", data: getAllSchools, status: 200 })
+
+
+    } catch (error) {
+        console.error("Error fetching all the schools: ", error);
+        return res.status(500).json({ message: "Internal Server Error fetching all schools", status: 500 })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools }

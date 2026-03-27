@@ -1,9 +1,10 @@
 import Router from 'express'
-import { allocateTeacherToSubject, createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject } from '../controllers/institute.controller';
+import { allocateTeacherToSubject, createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject, getAllSchools } from '../controllers/institute.controller';
 import { upload } from '../middlewares/multer.middleware';
 import { authenticateUser } from '../middlewares/authenticate.middleware';
 import { checkUserPersmission } from '../middlewares/checkPermission.middleware';
 import { checkUserRoles } from '../middlewares/checkRoles.middleware';
+import { superAdmin } from '../constants/auth.constants';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router
     .post(
         authenticateUser,
         checkUserPersmission(['saas.institute.create']),
-        checkUserRoles(['SUPER_ADMIN']),
+        checkUserRoles([superAdmin]),
         upload.fields([{ name: 'instituteLogo', maxCount: 1 }]),
         createSchool);
 
@@ -20,7 +21,7 @@ router
     .route('/createSchoolAdmin')
     .post(
         authenticateUser,
-        checkUserRoles(['SUPER_ADMIN']),
+        checkUserRoles([superAdmin]),
         checkUserPersmission(['user.assign_role', 'user.create']),
         createSchoolAdmin);
 
@@ -60,6 +61,14 @@ router
         authenticateUser,
         checkUserPersmission(['user.assign_role']),
         allocateTeacherToSubject
+    );
+
+router
+    .route('/allSchools')
+    .get(
+        authenticateUser,
+        checkUserRoles([superAdmin]),
+        getAllSchools
     )
 
 export default router

@@ -3,6 +3,7 @@ import { createAcademicYear, createStaff, getAcademicYears, getSchoolAdmins, get
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
+import { accountant, schoolAdmin, superAdmin } from "../constants/auth.constants";
 
 const router = Router();
 // Create academic year for school
@@ -10,7 +11,7 @@ router
     .route('/createAcademicYear')
     .post(
         authenticateUser,
-        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN', 'ACCOUNTANT']),
+        checkUserRoles([superAdmin, schoolAdmin, accountant]),
         checkUserPersmission(['academic_year.create']),
         createAcademicYear
     );
@@ -19,7 +20,7 @@ router
 router
     .route('/createStaff')
     .post(
-        authenticateUser, checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN']),
+        authenticateUser, checkUserRoles([superAdmin, schoolAdmin]),
         checkUserPersmission(["staff.create"]),
         createStaff
     );
@@ -28,7 +29,7 @@ router
     .route('/staff')
     .get(
         authenticateUser,
-        checkUserRoles(['SUPER_ADMIN', 'SCHOOL_ADMIN', 'ACCOUNTANT']),
+        checkUserRoles([superAdmin, schoolAdmin, accountant]),
         checkUserPersmission(['staff.view']),
         getStaffByInstitute
     )
@@ -45,7 +46,7 @@ router
     .route('/allAdmins')
     .get(
         authenticateUser,
-        checkUserRoles(['SUPER_ADMIN']),
+        checkUserRoles([superAdmin]),
         getSchoolAdmins
     )
 
