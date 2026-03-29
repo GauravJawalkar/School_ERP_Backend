@@ -4,7 +4,7 @@ import { upload } from '../middlewares/multer.middleware';
 import { authenticateUser } from '../middlewares/authenticate.middleware';
 import { checkUserPersmission } from '../middlewares/checkPermission.middleware';
 import { checkUserRoles } from '../middlewares/checkRoles.middleware';
-import { superAdmin } from '../constants/auth.constants';
+import { schoolAdmin, superAdmin } from '../constants/auth.constants';
 
 const router = Router();
 
@@ -21,7 +21,7 @@ router
     .route('/createSchoolAdmin')
     .post(
         authenticateUser,
-        checkUserRoles([superAdmin]),
+        checkUserRoles([superAdmin, schoolAdmin]),
         checkUserPersmission(['user.assign_role', 'user.create']),
         createSchoolAdmin);
 

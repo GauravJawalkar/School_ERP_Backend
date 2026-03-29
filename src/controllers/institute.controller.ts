@@ -84,8 +84,10 @@ const createSchool = async (req: Request, res: Response) => {
 
 const createSchoolAdmin = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req)
-        const { firstName, lastName, email, phone, gender, password, isActive, roleName } = req.body;
+        // const { instituteId } = await getLoggedInUserDetails(req)
+
+        // Getting the instituteId from req.body because while creating school admin , the super admin will not be having instituteId in his token details as he is not linked to any institute but he can create multiple school admins for different schools using the same API and that is why sending instituteId in req.body
+        const { firstName, lastName, email, phone, gender, password, isActive, roleName, instituteId } = req.body;
 
         if ([firstName, lastName, email, phone, gender, password, roleName].some(field => field.trim() === "" || !field)) {
             return res.status(400).json({ status: 400, message: "Provide all required fields" });
