@@ -82,6 +82,7 @@ const createSchool = async (req: Request, res: Response) => {
     }
 }
 
+// TODO: Send email to the school admin with his/her login credentials and other details after creating the school admin account.
 const createSchoolAdmin = async (req: Request, res: Response) => {
     try {
         // const { instituteId } = await getLoggedInUserDetails(req)
@@ -480,4 +481,44 @@ const getAllSchools = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools }
+const updateUserStatus = async (req: Request, res: Response) => {
+    try {
+        const { userId, isActive } = req.body;
+
+        if (!userId || typeof isActive !== "boolean") {
+            return res.status(400).json({ message: "Please provide required fields", status: 400 })
+        }
+
+        const [existingUser] = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        if (!existingUser) {
+            return res.status(404).json({ message: "User not found", status: 404 })
+        }
+
+        const [updatedUser] = await db.update(usersTable)
+            .set({ isActive })
+            .where(eq(usersTable.id, userId))
+            .returning({
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                email: usersTable.email,
+                isActive: usersTable.isActive
+            });
+
+        if (!updatedUser) {
+            return res.status(400).json({ message: "Failed to update user status", status: 400 })
+        }
+
+        return res.status(200).json({ message: "User status updated successfully", data: updatedUser, status: 200 })
+
+    } catch (error) {
+        console.error("Error updating userStatus: ", error);
+        return res.status(500).json({ message: "Internal Server Error updating userStatus", status: 500 })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus }
