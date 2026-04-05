@@ -134,6 +134,10 @@ const loginUser = async (req: Request, res: Response) => {
 
         const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
 
+        if (user?.isActive === false) {
+            return res.status(403).json({ message: "Account Deactivated. Please contact administrator.", status: 403 })
+        }
+
         if (!user) {
             return res.status(404).json({ message: "User with this email not found in the database", status: 404 })
         }
