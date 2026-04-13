@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { db } from "../db";
-import { classesTable, classSubjectsTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
-import { and, countDistinct, eq } from "drizzle-orm";
+import { classesTable, classSubjectsTable, feeStructuresTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
+import { and, countDistinct, eq, sql } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
 import type { TokenUser } from "../interface";
@@ -481,6 +481,120 @@ const getAllSchools = async (req: Request, res: Response) => {
     }
 }
 
+const getSchoolDetails = async (req: Request, res: Response) => {
+    try {
+        const { slug } = await req.params;
+
+        if (!slug) {
+            return res.status(400).json({ message: "Invalid School Slug", status: 400 });
+        }
+
+        const schoolDetails = await db
+            .select({
+                // --- HERO + QUICK STATS ---
+                id: instituteProfileTable.id,
+                schoolName: instituteProfileTable.schoolName,
+                slug: instituteProfileTable.slug,
+                affiliationNumber: instituteProfileTable.affiliationNumber,
+                status: instituteProfileTable.status,
+                address: instituteProfileTable.address,
+                logoUrl: instituteProfileTable.logoUrl,
+                contactInfo: instituteProfileTable.contactInfo,
+
+                // --- CLASSES (Academics section) ---
+                classes: sql<{
+                    id: number;
+                    className: string;
+                    orderIndex: number | null;
+                    capacity: number | null;
+                }[]>`
+                    COALESCE(
+                        json_agg(DISTINCT jsonb_build_object(
+                            'id', ${classesTable.id},
+                            'className', ${classesTable.className},
+                            'orderIndex', ${classesTable.orderIndex},
+                            'capacity', ${classesTable.capacity}
+                        )) FILTER (WHERE ${classesTable.id} IS NOT NULL),
+                        '[]'
+                    )
+                `,
+
+                // --- FEE STRUCTURES (Fee section) ---
+                feeStructures: sql<{
+                    classId: number;
+                    amount: string;
+                    frequency: string;
+                    isCompulsory: boolean;
+                    dueDay: number | null;
+                }[]>`
+                    COALESCE(
+                        json_agg(DISTINCT jsonb_build_object(
+                            'classId', ${feeStructuresTable.classId},
+                            'amount', ${feeStructuresTable.amount},
+                            'frequency', ${feeStructuresTable.frequency},
+                            'isCompulsory', ${feeStructuresTable.isCompulsory},
+                            'dueDay', ${feeStructuresTable.dueDay}
+                        )) FILTER (WHERE ${feeStructuresTable.id} IS NOT NULL),
+                        '[]'
+                    )
+                `,
+
+                // --- STAFF (Faculty section) ---
+                staff: sql<{
+                    id: number;
+                    firstName: string;
+                    lastName: string;
+                    designation: string;
+                    department: string | null;
+                    joiningDate: string;
+                }[]>`
+                    COALESCE(
+                        json_agg(DISTINCT jsonb_build_object(
+                            'id', ${staffTable.id},
+                            'firstName', ${staffTable.firstName},
+                            'lastName', ${staffTable.lastName},
+                            'designation', ${staffTable.designation},
+                            'department', ${staffTable.department},
+                            'joiningDate', ${staffTable.joiningDate}
+                        )) FILTER (WHERE ${staffTable.id} IS NOT NULL),
+                        '[]'
+                    )
+                `,
+
+                // --- STUDENT COUNT (Quick Stats) ---
+                totalStudents: sql<number>`
+                    COUNT(DISTINCT ${studentsTable.id})
+                `,
+            })
+            .from(instituteProfileTable)
+            .leftJoin(classesTable, eq(classesTable.instituteId, instituteProfileTable.id))
+            .leftJoin(feeStructuresTable, eq(feeStructuresTable.instituteId, instituteProfileTable.id))
+            .leftJoin(staffTable, eq(staffTable.instituteId, instituteProfileTable.id))
+            .leftJoin(studentsTable, eq(studentsTable.instituteId, instituteProfileTable.id))
+            .where(eq(instituteProfileTable.slug, slug))
+            .groupBy(instituteProfileTable.id)
+            .limit(1);
+
+        if (!schoolDetails.length) {
+            return res.status(404).json({
+                message: "School not found",
+                status: 404
+            })
+        }
+
+        return res.status(200).json({
+            message: "Fetched School Details Successfully",
+            data: schoolDetails[0],
+            status: 200
+        });
+
+
+    } catch (error) {
+        console.error("Error fetching schoolDetails: ", error);
+        return res.status(500).json({ message: "Internal Server Error fetching schoolDetails", status: 500 })
+    }
+}
+
 const updateUserStatus = async (req: Request, res: Response) => {
     try {
         const { userId, isActive } = req.body;
@@ -521,4 +635,4 @@ const updateUserStatus = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus }
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus, getSchoolDetails }

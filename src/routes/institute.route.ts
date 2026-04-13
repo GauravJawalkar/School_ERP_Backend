@@ -1,5 +1,5 @@
 import Router from 'express'
-import { allocateTeacherToSubject, createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject, getAllSchools, updateUserStatus } from '../controllers/institute.controller';
+import { allocateTeacherToSubject, createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject, getAllSchools, getSchoolDetails, updateUserStatus } from '../controllers/institute.controller';
 import { upload } from '../middlewares/multer.middleware';
 import { authenticateUser } from '../middlewares/authenticate.middleware';
 import { checkUserPersmission } from '../middlewares/checkPermission.middleware';
@@ -78,6 +78,14 @@ router
         checkUserPersmission(['user.update']),
         checkUserRoles([superAdmin, schoolAdmin]),
         updateUserStatus
+    )
+
+router
+    .route('/:slug')
+    .get(
+        authenticateUser,
+        checkUserPersmission(['saas.institute.create', 'institute.view']),
+        getSchoolDetails
     )
 
 export default router
