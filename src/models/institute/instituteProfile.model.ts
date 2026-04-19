@@ -1,7 +1,8 @@
 import { pgTable, varchar, integer, timestamp, json, jsonb, pgEnum } from "drizzle-orm/pg-core";
-import type { ContactInfo } from "../../interface";
+import type { ContactInfo, InstituteAdditionalInfo } from "../../interface";
 
 export const instituteStatusEnum = pgEnum('status', ['ACTIVE', 'INACTIVE', 'SUSPENDED']);
+export const instituteMediumEnum = pgEnum('medium', ['ENGLISH', 'HINDI', 'MARATHI', 'GUJARATI', 'BENGALI', 'TAMIL', 'TELGU', 'KANNADA', 'URDU', 'PUNJABI', 'OTHER']);
 
 export const instituteProfileTable = pgTable('instituteProfileTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
@@ -11,7 +12,9 @@ export const instituteProfileTable = pgTable('instituteProfileTable', {
     status: instituteStatusEnum('status').default('ACTIVE').notNull(),
     address: varchar("address").notNull(),
     logoUrl: varchar("logo"),
+    medium: instituteMediumEnum('medium'),
     contactInfo: jsonb("contactInfo").$type<ContactInfo>(),
+    additionalInfo: jsonb("additionalInfo").$type<InstituteAdditionalInfo>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().notNull()
 })

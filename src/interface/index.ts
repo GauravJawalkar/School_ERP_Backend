@@ -74,3 +74,14 @@ export interface PromoteStudentParams {
     targetSectionId?: number;
     promotionType?: PromotionType;
 }
+
+export interface InstituteAdditionalInfo {
+    establishedYear?: number;
+    founderName?: string;
+    missionStatement?: string;
+    visionStatement?: string;
+    coreValues?: string[];
+    notableAlumni?: string[];
+    tags?: string[];
+    boardsAffiliated?: string[];
+}
