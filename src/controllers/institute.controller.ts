@@ -512,7 +512,9 @@ const getSchoolDetails = async (req: Request, res: Response) => {
                 status: instituteProfileTable.status,
                 address: instituteProfileTable.address,
                 logoUrl: instituteProfileTable.logoUrl,
+                medium: instituteProfileTable.medium,
                 contactInfo: instituteProfileTable.contactInfo,
+                additionalInfo: instituteProfileTable.additionalInfo,
 
                 // --- CLASSES (Academics section) ---
                 classes: sql<{
@@ -648,4 +650,130 @@ const updateUserStatus = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus, getSchoolDetails }
+const updateSchoolDetails = async (req: Request, res: Response) => {
+    try {
+        const { slug } = req.params;
+
+        if (!slug) {
+            return res.status(400).json({ status: 400, message: "Invalid School Slug" });
+        }
+
+        const [existingInstitute] = await db
+            .select()
+            .from(instituteProfileTable)
+            .where(eq(instituteProfileTable.slug, slug))
+
+        if (!existingInstitute) {
+            return res.status(404).json({ status: 404, message: "Institute not found" })
+        }
+
+        // ── scalar fields from req.body ──
+        const {
+            schoolName,
+            primaryEmail,
+            affiliationNumber,
+            main_phone,
+            website,
+            city,
+            state,
+            address,
+            landmark,
+            office_hours_Mon_Fri,
+            office_hours_Sat,
+            office_hours_Sun = "Off",
+            pincode,
+            medium,
+            establishedYear,
+            founderName,
+            missionStatement,
+            visionStatement,
+        } = req.body
+
+        // ── array fields — normalize string | string[] → string[] ──
+        const toArray = (val: any): string[] => {
+            if (!val) return []
+            return Array.isArray(val) ? val : [val]
+        }
+
+        const coreValues = toArray(req.body.coreValues)
+        const tags = toArray(req.body.tags)
+        const boardsAffiliated = toArray(req.body.boardsAffiliated)
+        const notableAlumni = toArray(req.body.notableAlumni)
+
+        // ── logo — only update if a new file was uploaded ──
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined
+        const logoFile = files?.instituteLogo?.[0]
+        let logoUrl = existingInstitute.logoUrl  // keep existing by default
+
+        if (logoFile) {
+            const uploaded = await uploadImageToCloudinary(logoFile.path, "School_Erp_Logos")
+            if (!uploaded) {
+                return res.status(500).json({ status: 500, message: "Failed to upload logo image" })
+            }
+            logoUrl = uploaded.secure_url
+        }
+
+        // ── build updated nested objects ──
+        const contactInfo = {
+            main_phone,
+            emails: {
+                primary: primaryEmail
+            },
+            office_hours: {
+                monday_to_friday: office_hours_Mon_Fri,
+                saturday: office_hours_Sat,
+                sunday: office_hours_Sun,
+            },
+            website,
+            address_details: {
+                landmark,
+                city,
+                state,
+                pincode,
+            }
+        }
+
+        const additionalInfo = {
+            establishedYear: establishedYear ? Number(establishedYear) : undefined,
+            founderName,
+            missionStatement,
+            visionStatement,
+            coreValues,
+            notableAlumni,
+            tags,
+            boardsAffiliated,
+        }
+
+        // ── update ──
+        const [updatedInstitute] = await db
+            .update(instituteProfileTable)
+            .set({
+                schoolName,
+                affiliationNumber,
+                address,
+                medium,
+                logoUrl,
+                contactInfo,
+                additionalInfo,
+                updatedAt: new Date()
+            })
+            .where(eq(instituteProfileTable.slug, slug))
+            .returning()
+
+        if (!updatedInstitute) {
+            return res.status(500).json({ status: 500, message: "Failed to update institute" })
+        }
+
+        return res.status(200).json({
+            status: 200,
+            message: "Institute updated successfully",
+            data: updatedInstitute
+        })
+
+    } catch (error) {
+        console.error("Error updating SchoolDetails: ", error);
+        return res.status(500).json({ message: "Internal Server Error updating schoolDetails", status: 500 })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus, getSchoolDetails, updateSchoolDetails }
