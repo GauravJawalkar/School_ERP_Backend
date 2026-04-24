@@ -775,4 +775,50 @@ const updateSchoolDetails = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus, getSchoolDetails, updateSchoolDetails }
+const updateSchoolStatus = async (req: Request, res: Response) => {
+    try {
+        const { slug } = req.params
+        const { status } = req.body
+
+        if (!slug) {
+            return res.status(400).json({ message: "Invalid School Slug", status: 400 })
+        }
+
+        const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_APPROVAL']
+
+        if (!status || !VALID_STATUSES.includes(status)) {
+            return res.status(400).json({ message: "Invalid status value", status: 400 })
+        }
+
+        const [existingInstitute] = await db
+            .select()
+            .from(instituteProfileTable)
+            .where(eq(instituteProfileTable.slug, slug))
+
+        if (!existingInstitute) {
+            return res.status(404).json({ message: "Institute not found", status: 404 })
+        }
+
+        const [updatedInstitute] = await db
+            .update(instituteProfileTable)
+            .set({ status, updatedAt: new Date() })
+            .where(eq(instituteProfileTable.slug, slug))
+            .returning()
+
+        if (!updatedInstitute) {
+            return res.status(500).json({ message: "Failed to update school status", status: 500 })
+        }
+
+        return res.status(200).json({
+            message: `School status updated to ${status} successfully`,
+            data: updatedInstitute,
+            status: 200
+        })
+
+    } catch (error) {
+        console.error("Error updating school status:", error)
+        return res.status(500).json({ message: "Internal Server Error updating school status", status: 500 })
+    }
+}
+
+export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus, getSchoolDetails, updateSchoolDetails, updateSchoolStatus }
