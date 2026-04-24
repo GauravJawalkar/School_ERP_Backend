@@ -4,7 +4,7 @@ import { academicYearsTable, classesTable, sectionsTable } from "../acedemics/ac
 import { instituteProfileTable } from "../institute/instituteProfile.model";
 
 export const castCategoryEnum = pgEnum('category', ['GENERAL', 'OBC', 'SC/ST']);
-export const studentStatusEnum = pgEnum('status', ['ACTIVE', 'ALUMINI', 'WITHDRAWN', 'TRANSFRRED']);
+export const studentStatusEnum = pgEnum('studentStatus', ['ACTIVE', 'ALUMINI', 'WITHDRAWN', 'TRANSFRRED']);
 export const studentAttendanceStatus = pgEnum('status', ['PRESENT', 'ABSENT', 'LATE', 'LEAVE']);
 const genderEnum = pgEnum('gender', ['MALE', 'FEMALE', 'OTHER']);
 

@@ -8,7 +8,7 @@ export const rolesTable = pgTable("rolesTable", {
     description: text('description'),
     isSystemRole: boolean('isSystemRole').notNull().default(false),
     expiryDate: date('expiryDate', { mode: 'date' }),
-    createdBy: uuid('createdBy').notNull(),
+    createdBy: uuid('createdBy'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').$onUpdate(() => new Date())
 })

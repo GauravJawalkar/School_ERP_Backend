@@ -1,6 +1,6 @@
 {
-  "id": "736acecb-64e8-40f1-9baf-8ea69f5dc6a9",
-  "prevId": "615b2ece-10ea-4632-939c-063b8e3248c4",
+  "id": "844f066d-f091-49fe-b972-ba0ce42c15d6",
+  "prevId": "33610724-ac90-468b-b157-81c6a0d33261",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -82,6 +82,12 @@
         },
         "motherOccupation": {
           "name": "motherOccupation",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "motherQualification": {
+          "name": "motherQualification",
           "type": "occupation",
           "typeSchema": "public",
           "primaryKey": false,
@@ -189,8 +195,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -640,12 +645,30 @@
           "notNull": true,
           "default": false
         },
+        "expiryDate": {
+          "name": "expiryDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -837,11 +860,25 @@
           "primaryKey": false,
           "notNull": true
         },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "affiliationNumber": {
           "name": "affiliationNumber",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "instituteStatus",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ACTIVE'"
         },
         "address": {
           "name": "address",
@@ -855,8 +892,21 @@
           "primaryKey": false,
           "notNull": false
         },
+        "medium": {
+          "name": "medium",
+          "type": "medium",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "contactInfo": {
           "name": "contactInfo",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additionalInfo": {
+          "name": "additionalInfo",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -885,6 +935,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "schoolName"
+          ]
+        },
+        "instituteProfileTable_slug_unique": {
+          "name": "instituteProfileTable_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
           ]
         },
         "instituteProfileTable_affiliationNumber_unique": {
@@ -1050,6 +1107,31 @@
           "primaryKey": false,
           "notNull": true
         },
+        "isDeleted": {
+          "name": "isDeleted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "deletedAt": {
+          "name": "deletedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deletedBy": {
+          "name": "deletedBy",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deletionReason": {
+          "name": "deletionReason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "timestamp",
@@ -1061,8 +1143,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -1117,6 +1198,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "admissionsTable_deletedBy_users_id_fk": {
+          "name": "admissionsTable_deletedBy_users_id_fk",
+          "tableFrom": "admissionsTable",
+          "tableTo": "users",
+          "columnsFrom": [
+            "deletedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1208,8 +1302,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -1925,6 +2018,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "instituteId": {
+          "name": "instituteId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "firstName": {
           "name": "firstName",
           "type": "varchar(100)",
@@ -1981,6 +2080,19 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "staffTable_instituteId_instituteProfileTable_id_fk": {
+          "name": "staffTable_instituteId_instituteProfileTable_id_fk",
+          "tableFrom": "staffTable",
+          "tableTo": "instituteProfileTable",
+          "columnsFrom": [
+            "instituteId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2229,6 +2341,158 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.studentEnrollmentTable": {
+      "name": "studentEnrollmentTable",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "studentEnrollmentTable_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "studentId": {
+          "name": "studentId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "classId": {
+          "name": "classId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sectionId": {
+          "name": "sectionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "academicYearId": {
+          "name": "academicYearId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rollNo": {
+          "name": "rollNo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enrollmentDate": {
+          "name": "enrollmentDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "enrollmentStatus",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ACTIVE'"
+        },
+        "exitDate": {
+          "name": "exitDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exitReason": {
+          "name": "exitReason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "studentEnrollmentTable_studentId_studentsTable_id_fk": {
+          "name": "studentEnrollmentTable_studentId_studentsTable_id_fk",
+          "tableFrom": "studentEnrollmentTable",
+          "tableTo": "studentsTable",
+          "columnsFrom": [
+            "studentId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "studentEnrollmentTable_classId_classesTable_id_fk": {
+          "name": "studentEnrollmentTable_classId_classesTable_id_fk",
+          "tableFrom": "studentEnrollmentTable",
+          "tableTo": "classesTable",
+          "columnsFrom": [
+            "classId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "studentEnrollmentTable_sectionId_sectionsTable_id_fk": {
+          "name": "studentEnrollmentTable_sectionId_sectionsTable_id_fk",
+          "tableFrom": "studentEnrollmentTable",
+          "tableTo": "sectionsTable",
+          "columnsFrom": [
+            "sectionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "studentEnrollmentTable_academicYearId_academicYearsTable_id_fk": {
+          "name": "studentEnrollmentTable_academicYearId_academicYearsTable_id_fk",
+          "tableFrom": "studentEnrollmentTable",
+          "tableTo": "academicYearsTable",
+          "columnsFrom": [
+            "academicYearId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.studentsTable": {
       "name": "studentsTable",
       "schema": "",
@@ -2314,7 +2578,7 @@
         },
         "status": {
           "name": "status",
-          "type": "status",
+          "type": "studentStatus",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
@@ -2471,8 +2735,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -2584,8 +2847,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -2705,8 +2967,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -2999,8 +3260,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -3186,8 +3446,7 @@
           "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
@@ -3432,6 +3691,33 @@
         "GUARDIAN"
       ]
     },
+    "public.medium": {
+      "name": "medium",
+      "schema": "public",
+      "values": [
+        "ENGLISH",
+        "HINDI",
+        "MARATHI",
+        "GUJARATI",
+        "BENGALI",
+        "TAMIL",
+        "TELGU",
+        "KANNADA",
+        "URDU",
+        "PUNJABI",
+        "OTHER"
+      ]
+    },
+    "public.instituteStatus": {
+      "name": "instituteStatus",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "INACTIVE",
+        "SUSPENDED",
+        "PENDING_APPROVAL"
+      ]
+    },
     "public.applicationStatus": {
       "name": "applicationStatus",
       "schema": "public",
@@ -3480,10 +3766,10 @@
       "name": "status",
       "schema": "public",
       "values": [
-        "ACTIVE",
-        "ALUMINI",
-        "WITHDRAWN",
-        "TRANSFRRED"
+        "PRESENT",
+        "ABSENT",
+        "LATE",
+        "LEAVE"
       ]
     },
     "public.category": {
@@ -3493,6 +3779,26 @@
         "GENERAL",
         "OBC",
         "SC/ST"
+      ]
+    },
+    "public.enrollmentStatus": {
+      "name": "enrollmentStatus",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "COMPLETED",
+        "TRANSFERRED",
+        "WITHDRAWN"
+      ]
+    },
+    "public.studentStatus": {
+      "name": "studentStatus",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "ALUMINI",
+        "WITHDRAWN",
+        "TRANSFRRED"
       ]
     },
     "public.feeFrequency": {

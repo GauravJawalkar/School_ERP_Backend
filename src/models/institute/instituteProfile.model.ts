@@ -1,7 +1,7 @@
-import { pgTable, varchar, integer, timestamp, json, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, varchar, integer, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import type { ContactInfo, InstituteAdditionalInfo } from "../../interface";
 
-export const instituteStatusEnum = pgEnum('status', ['ACTIVE', 'INACTIVE', 'SUSPENDED']);
+export const instituteStatusEnumm = pgEnum('instituteStatus', ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_APPROVAL']);
 export const instituteMediumEnum = pgEnum('medium', ['ENGLISH', 'HINDI', 'MARATHI', 'GUJARATI', 'BENGALI', 'TAMIL', 'TELGU', 'KANNADA', 'URDU', 'PUNJABI', 'OTHER']);
 
 export const instituteProfileTable = pgTable('instituteProfileTable', {
@@ -9,7 +9,7 @@ export const instituteProfileTable = pgTable('instituteProfileTable', {
     schoolName: varchar("schoolName", { length: 255 }).notNull().unique(),
     slug: varchar('slug', { length: 255 }).unique().notNull(),
     affiliationNumber: varchar("affiliationNumber").notNull().unique(),
-    status: instituteStatusEnum('status').default('ACTIVE').notNull(),
+    status: instituteStatusEnumm('status').default('ACTIVE').notNull(),
     address: varchar("address").notNull(),
     logoUrl: varchar("logo"),
     medium: instituteMediumEnum('medium'),

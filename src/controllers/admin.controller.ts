@@ -92,8 +92,9 @@ const createStaff = async (req: Request, res: Response) => {
         const { firstName, lastName, email, phone, gender, password, isActive, roleName, employeeCode, designation, joiningDate, salaryBasic, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankBranchName, bankAccType, upiId } = req.body;
 
         const { instituteId } = await getLoggedInUserDetails(req);
+        console.log("🚀 ~ createStaff ~ instituteId:", instituteId)
 
-        if ([firstName, lastName, instituteId, email, phone, gender, password, roleName, employeeCode, designation, joiningDate, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankAccType,].some((field) => !field || field.trim() === "")
+        if ([firstName, lastName, email, phone, gender, password, roleName, employeeCode, designation, joiningDate, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankAccType,].some((field) => !field || field?.trim() === "")
         ) {
             return res
                 .status(400)
@@ -121,7 +122,7 @@ const createStaff = async (req: Request, res: Response) => {
 
         // TODO: if the user with this email already exist then create a new api where you can just add that user to the StaffTable
 
-        if (!existingUser) {
+        if (existingUser) {
             return res
                 .status(400)
                 .json({ message: "User with this email already exists", status: 400 });

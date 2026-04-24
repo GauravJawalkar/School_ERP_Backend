@@ -2,12 +2,16 @@ CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE', 'OTHER');--> statement-b
 CREATE TYPE "public"."occupation" AS ENUM('BUSINESS', 'JOB', 'HOUSE_WIFE');--> statement-breakpoint
 CREATE TYPE "public"."primaryContact" AS ENUM('FATHER', 'MOTHER', 'GUARDIAN');--> statement-breakpoint
 CREATE TYPE "public"."relation" AS ENUM('FATHER', 'MOTHER', 'GUARDIAN');--> statement-breakpoint
+CREATE TYPE "public"."medium" AS ENUM('ENGLISH', 'HINDI', 'MARATHI', 'GUJARATI', 'BENGALI', 'TAMIL', 'TELGU', 'KANNADA', 'URDU', 'PUNJABI', 'OTHER');--> statement-breakpoint
+CREATE TYPE "public"."instituteStatus" AS ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_APPROVAL');--> statement-breakpoint
 CREATE TYPE "public"."applicationStatus" AS ENUM('PENDING', 'APPROVED', 'REJECTED', 'INQUIRY');--> statement-breakpoint
 CREATE TYPE "public"."classSectionName" AS ENUM('A', 'B', 'C', 'D', 'E', 'F');--> statement-breakpoint
 CREATE TYPE "public"."daysOfWeek" AS ENUM('1', '2', '3', '4', '5', '6', '7');--> statement-breakpoint
 CREATE TYPE "public"."subjectType" AS ENUM('THEORY', 'PRACTICAL', 'LAB');--> statement-breakpoint
-CREATE TYPE "public"."status" AS ENUM('ACTIVE', 'ALUMINI', 'WITHDRAWN', 'TRANSFRRED');--> statement-breakpoint
+CREATE TYPE "public"."status" AS ENUM('PRESENT', 'ABSENT', 'LATE', 'LEAVE');--> statement-breakpoint
 CREATE TYPE "public"."category" AS ENUM('GENERAL', 'OBC', 'SC/ST');--> statement-breakpoint
+CREATE TYPE "public"."enrollmentStatus" AS ENUM('ACTIVE', 'COMPLETED', 'TRANSFERRED', 'WITHDRAWN');--> statement-breakpoint
+CREATE TYPE "public"."studentStatus" AS ENUM('ACTIVE', 'ALUMINI', 'WITHDRAWN', 'TRANSFRRED');--> statement-breakpoint
 CREATE TYPE "public"."feeFrequency" AS ENUM('ONE_TIME', 'MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'ANNUALLY');--> statement-breakpoint
 CREATE TYPE "public"."feeType" AS ENUM('ACADEMIC', 'TRANSPORT', 'LIBRARY', 'EXAM', 'OTHER');--> statement-breakpoint
 CREATE TYPE "public"."invoiceStatus" AS ENUM('UNPAID', 'PARTIAL', 'PAID', 'OVERDUE', 'CANCELLED');--> statement-breakpoint
@@ -24,7 +28,8 @@ CREATE TABLE "parentsTable" (
 	"fatherEmail" varchar(100),
 	"fatherAadhar" varchar(12),
 	"motherName" varchar(100) NOT NULL,
-	"motherOccupation" "occupation",
+	"motherOccupation" varchar(100),
+	"motherQualification" "occupation",
 	"motherPhone" varchar(15),
 	"motherEmail" varchar(100),
 	"motherAadhar" varchar(12),
@@ -41,7 +46,7 @@ CREATE TABLE "parentsTable" (
 	"state" varchar(100),
 	"pincode" varchar(10),
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "resetPasswordTable" (
@@ -74,8 +79,7 @@ CREATE TABLE "users" (
 	"last_login" timestamp DEFAULT now() NOT NULL,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "users_email_unique" UNIQUE("email"),
-	CONSTRAINT "users_phone_unique" UNIQUE("phone")
+	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
 CREATE TABLE "userRoleTable" (
@@ -92,7 +96,10 @@ CREATE TABLE "rolesTable" (
 	"instituteId" integer NOT NULL,
 	"description" text,
 	"isSystemRole" boolean DEFAULT false NOT NULL,
+	"expiryDate" date,
+	"createdBy" uuid NOT NULL,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
+	"updatedAt" timestamp,
 	CONSTRAINT "rolesTable_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
@@ -114,13 +121,18 @@ CREATE TABLE "rolePermissionTable" (
 CREATE TABLE "instituteProfileTable" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "instituteProfileTable_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"schoolName" varchar(255) NOT NULL,
+	"slug" varchar(255) NOT NULL,
 	"affiliationNumber" varchar NOT NULL,
+	"status" "instituteStatus" DEFAULT 'ACTIVE' NOT NULL,
 	"address" varchar NOT NULL,
 	"logo" varchar,
+	"medium" "medium",
 	"contactInfo" jsonb,
+	"additionalInfo" jsonb,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
 	"updatedAt" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "instituteProfileTable_schoolName_unique" UNIQUE("schoolName"),
+	CONSTRAINT "instituteProfileTable_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "instituteProfileTable_affiliationNumber_unique" UNIQUE("affiliationNumber")
 );
 --> statement-breakpoint
@@ -144,8 +156,12 @@ CREATE TABLE "admissionsTable" (
 	"parentPhoneNo" varchar(15) NOT NULL,
 	"status" "applicationStatus" DEFAULT 'PENDING' NOT NULL,
 	"classId" integer NOT NULL,
+	"isDeleted" boolean DEFAULT false,
+	"deletedAt" timestamp,
+	"deletedBy" uuid,
+	"deletionReason" text,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "classSubjectsTable" (
@@ -159,7 +175,7 @@ CREATE TABLE "classSubjectsTable" (
 	"isCompulsory" boolean DEFAULT true,
 	"isActive" boolean DEFAULT true,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "classesTable" (
@@ -230,6 +246,7 @@ CREATE TABLE "staffTable" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "staffTable_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"userId" uuid NOT NULL,
 	"employeeCode" varchar(50) NOT NULL,
+	"instituteId" integer NOT NULL,
 	"firstName" varchar(100) NOT NULL,
 	"lastName" varchar(100) NOT NULL,
 	"designation" varchar(100) NOT NULL,
@@ -266,6 +283,21 @@ CREATE TABLE "studentDocumentsTable" (
 	"uploaded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "studentEnrollmentTable" (
+	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "studentEnrollmentTable_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"studentId" integer NOT NULL,
+	"classId" integer NOT NULL,
+	"sectionId" integer,
+	"academicYearId" integer NOT NULL,
+	"rollNo" integer,
+	"enrollmentDate" date NOT NULL,
+	"status" "enrollmentStatus" DEFAULT 'ACTIVE' NOT NULL,
+	"exitDate" date,
+	"exitReason" text,
+	"createdAt" timestamp DEFAULT now() NOT NULL,
+	"updatedAt" timestamp
+);
+--> statement-breakpoint
 CREATE TABLE "studentsTable" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "studentsTable_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"instituteId" integer NOT NULL,
@@ -278,7 +310,7 @@ CREATE TABLE "studentsTable" (
 	"currentClassId" integer NOT NULL,
 	"currentSectionId" integer,
 	"category" "category",
-	"status" "status" NOT NULL,
+	"status" "studentStatus" NOT NULL,
 	"rollNo" integer
 );
 --> statement-breakpoint
@@ -293,7 +325,7 @@ CREATE TABLE "feeHeadsTable" (
 	"isRefundable" boolean DEFAULT false,
 	"isActive" boolean DEFAULT true,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "feeInstallmentsTable" (
@@ -308,7 +340,7 @@ CREATE TABLE "feeInstallmentsTable" (
 	"maxFine" numeric(10, 2),
 	"description" text,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "feeStructuresTable" (
@@ -322,7 +354,7 @@ CREATE TABLE "feeStructuresTable" (
 	"isCompulsory" boolean DEFAULT true,
 	"dueDay" integer,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "invoiceLineItemsTable" (
@@ -354,7 +386,7 @@ CREATE TABLE "invoicesTable" (
 	"paidAt" timestamp,
 	"notes" text,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL,
+	"updatedAt" timestamp,
 	CONSTRAINT "invoicesTable_invoiceNo_unique" UNIQUE("invoiceNo")
 );
 --> statement-breakpoint
@@ -372,7 +404,7 @@ CREATE TABLE "studentFeeAssignmentsTable" (
 	"assignedAt" timestamp DEFAULT now() NOT NULL,
 	"assignedBy" uuid,
 	"createdAt" timestamp DEFAULT now() NOT NULL,
-	"updatedAt" timestamp DEFAULT now() NOT NULL
+	"updatedAt" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "transactionsTable" (
@@ -409,6 +441,7 @@ ALTER TABLE "admissionsTable" ADD CONSTRAINT "admissionsTable_academicYearId_aca
 ALTER TABLE "admissionsTable" ADD CONSTRAINT "admissionsTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "admissionsTable" ADD CONSTRAINT "admissionsTable_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "admissionsTable" ADD CONSTRAINT "admissionsTable_classId_classesTable_id_fk" FOREIGN KEY ("classId") REFERENCES "public"."classesTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "admissionsTable" ADD CONSTRAINT "admissionsTable_deletedBy_users_id_fk" FOREIGN KEY ("deletedBy") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "classSubjectsTable" ADD CONSTRAINT "classSubjectsTable_classId_classesTable_id_fk" FOREIGN KEY ("classId") REFERENCES "public"."classesTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "classSubjectsTable" ADD CONSTRAINT "classSubjectsTable_subjectId_subjectsTable_id_fk" FOREIGN KEY ("subjectId") REFERENCES "public"."subjectsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "classSubjectsTable" ADD CONSTRAINT "classSubjectsTable_academicYearId_academicYearsTable_id_fk" FOREIGN KEY ("academicYearId") REFERENCES "public"."academicYearsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -428,10 +461,15 @@ ALTER TABLE "timeTableSlotsTable" ADD CONSTRAINT "timeTableSlotsTable_sectionId_
 ALTER TABLE "timeTableSlotsTable" ADD CONSTRAINT "timeTableSlotsTable_subjectAllocationId_subjectAllocationsTable_id_fk" FOREIGN KEY ("subjectAllocationId") REFERENCES "public"."subjectAllocationsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "staffAttendanceTable" ADD CONSTRAINT "staffAttendanceTable_staffId_staffTable_id_fk" FOREIGN KEY ("staffId") REFERENCES "public"."staffTable"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "staffTable" ADD CONSTRAINT "staffTable_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "staffTable" ADD CONSTRAINT "staffTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "teacherProfileTable" ADD CONSTRAINT "teacherProfileTable_staffId_staffTable_id_fk" FOREIGN KEY ("staffId") REFERENCES "public"."staffTable"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "teacherProfileTable" ADD CONSTRAINT "teacherProfileTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentAttendance" ADD CONSTRAINT "studentAttendance_studentId_studentsTable_id_fk" FOREIGN KEY ("studentId") REFERENCES "public"."studentsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentDocumentsTable" ADD CONSTRAINT "studentDocumentsTable_studentId_studentsTable_id_fk" FOREIGN KEY ("studentId") REFERENCES "public"."studentsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "studentEnrollmentTable" ADD CONSTRAINT "studentEnrollmentTable_studentId_studentsTable_id_fk" FOREIGN KEY ("studentId") REFERENCES "public"."studentsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "studentEnrollmentTable" ADD CONSTRAINT "studentEnrollmentTable_classId_classesTable_id_fk" FOREIGN KEY ("classId") REFERENCES "public"."classesTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "studentEnrollmentTable" ADD CONSTRAINT "studentEnrollmentTable_sectionId_sectionsTable_id_fk" FOREIGN KEY ("sectionId") REFERENCES "public"."sectionsTable"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "studentEnrollmentTable" ADD CONSTRAINT "studentEnrollmentTable_academicYearId_academicYearsTable_id_fk" FOREIGN KEY ("academicYearId") REFERENCES "public"."academicYearsTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentsTable" ADD CONSTRAINT "studentsTable_instituteId_instituteProfileTable_id_fk" FOREIGN KEY ("instituteId") REFERENCES "public"."instituteProfileTable"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentsTable" ADD CONSTRAINT "studentsTable_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studentsTable" ADD CONSTRAINT "studentsTable_currentClassId_classesTable_id_fk" FOREIGN KEY ("currentClassId") REFERENCES "public"."classesTable"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

@@ -5,113 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1766342147110,
-      "tag": "0000_superb_nomad",
+      "when": 1777058282743,
+      "tag": "0000_lowly_patriot",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1766602620816,
-      "tag": "0001_wonderful_typhoid_mary",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1766603198590,
-      "tag": "0002_lovely_sleeper",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1766858589543,
-      "tag": "0003_boring_morlocks",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1766910777984,
-      "tag": "0004_violet_stingray",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1766910928461,
-      "tag": "0005_neat_shooting_star",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1766911091971,
-      "tag": "0006_aromatic_the_leader",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1767639071289,
-      "tag": "0007_flippant_patch",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1767982679798,
-      "tag": "0008_nifty_tana_nile",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1767990306499,
-      "tag": "0009_exotic_vampiro",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1767990497151,
-      "tag": "0010_magenta_adam_warlock",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1767990553043,
-      "tag": "0011_thick_spirit",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1772910366761,
-      "tag": "0012_young_lily_hollister",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1772910470605,
-      "tag": "0013_clammy_ender_wiggin",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1772910994498,
-      "tag": "0014_tiny_sentinel",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1776612313762,
-      "tag": "0015_parched_misty_knight",
+      "when": 1777058571036,
+      "tag": "0001_safe_natasha_romanoff",
       "breakpoints": true
     }
   ]
