@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createAcademicYear, createStaff, getAcademicYears, getSchoolAdmins, getStaffByInstitute } from "../controllers/admin.controller";
+import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute } from "../controllers/admin.controller";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
@@ -47,6 +47,14 @@ router
     .get(
         authenticateUser,
         checkUserRoles([superAdmin]),
+        getAllSchoolAdmins
+    )
+
+router
+    .route('/:slug')
+    .get(
+        authenticateUser,
+        checkUserRoles([superAdmin, schoolAdmin]),
         getSchoolAdmins
     )
 

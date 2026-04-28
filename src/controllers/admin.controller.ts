@@ -315,7 +315,7 @@ const getAcademicYears = async (req: Request, res: Response) => {
 }
 
 // Getting all school Admins for superAdmin
-const getSchoolAdmins = async (req: Request, res: Response) => {
+const getAllSchoolAdmins = async (req: Request, res: Response) => {
     try {
         const { roles } = await getLoggedInUserDetails(req);
 
@@ -410,7 +410,78 @@ const getSchoolAdmins = async (req: Request, res: Response) => {
     }
 }
 
-export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getSchoolAdmins };
+const getSchoolAdmins = async (req: Request, res: Response) => {
+    try {
+        const { slug } = req.params;
+
+        if (!slug) {
+            return res.status(400).json({ message: "School slug is required", status: 400 });
+        }
+
+        const school = await db
+            .select({ id: instituteProfileTable.id })
+            .from(instituteProfileTable)
+            .where(eq(instituteProfileTable.slug, slug))
+            .limit(1);
+
+        if (!school) {
+            return res.status(404).json({ message: "School not found", status: 404 });
+        }
+
+        const schoolId = school[0]?.id;
+
+        if (!schoolId) {
+            return res.status(404).json({ message: "School ID not found", status: 404 });
+        }
+
+        const schoolAdmins = await db
+            .select({
+                userId: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                isActive: usersTable.isActive,
+                assignedAt: userRoleTable.assignedAt,
+            })
+            .from(usersTable)
+            .innerJoin(
+                userRoleTable,
+                eq(userRoleTable.userId, usersTable.id)
+            )
+            .innerJoin(
+                rolesTable,
+                eq(rolesTable.id, userRoleTable.roleId)
+            )
+            .where(
+                and(
+                    eq(usersTable.instituteId, schoolId),
+                    eq(rolesTable.name, 'SCHOOL_ADMIN'),
+                    eq(rolesTable.isSystemRole, true)
+                )
+            );
+
+        if (schoolAdmins.length === 0) {
+            return res.status(200).json({ message: "No admins found for this school", status: 200, data: [] });
+        }
+
+        const totalAdmins = schoolAdmins.length;
+        const totalActiveAdmins = schoolAdmins.filter(a => a.isActive).length;
+
+        return res.status(200).json({
+            message: "School admins fetched successfully",
+            data: schoolAdmins,
+            totalAdmins,
+            totalActiveAdmins,
+            status: 200
+        });
+    } catch (error) {
+        console.error("Error fetching school admins:", error);
+        return res.status(500).json({ message: "Internal Server Error Getting School Admins", status: 500 });
+    }
+}
+
+export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins };
 
 
 // TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)
