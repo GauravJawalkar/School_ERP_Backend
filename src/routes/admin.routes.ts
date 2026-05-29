@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute } from "../controllers/admin.controller";
+import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute, getUnifiedSchoolDirectory } from "../controllers/admin.controller";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
@@ -23,6 +23,14 @@ router
         authenticateUser, checkUserRoles([superAdmin, schoolAdmin]),
         checkUserPersmission(["staff.create"]),
         createStaff
+    );
+
+router
+    .route('/directory')
+    .get(
+        authenticateUser,
+        checkUserRoles([superAdmin, schoolAdmin, accountant]),
+        getUnifiedSchoolDirectory
     );
 
 router

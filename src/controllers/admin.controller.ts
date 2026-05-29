@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { academicYearsTable, instituteProfileTable, rolesTable, userRoleTable, usersTable } from "../models";
-import { and, eq } from "drizzle-orm";
+import { academicYearsTable, instituteProfileTable, rolesTable, userRoleTable, usersTable, studentsTable, parentsTable } from "../models";
+import { and, eq, sql } from "drizzle-orm";
 import type { BankDetails, TokenUser } from "../interface";
 import bcrypt from "bcrypt";
 import { staffTable, teacherProfileTable } from "../models/staff/staff.model";
@@ -481,7 +481,153 @@ const getSchoolAdmins = async (req: Request, res: Response) => {
     }
 }
 
-export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins };
+const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
+    try {
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+
+        let targetInstituteId = loggedInInstId;
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
+
+        if (isSuperAdmin && req.query.instituteId) {
+            targetInstituteId = Number(req.query.instituteId);
+        }
+
+        if (!targetInstituteId || isNaN(targetInstituteId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or missing instituteId",
+                status: 400
+            });
+        }
+
+        // 1. Fetch Staff roster
+        const staffList = await db
+            .select({
+                id: staffTable.id,
+                firstName: staffTable.firstName,
+                lastName: staffTable.lastName,
+                employeeCode: staffTable.employeeCode,
+                designation: staffTable.designation,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                isActive: usersTable.isActive,
+                roleName: sql<string>`COALESCE(
+                    CASE 
+                        WHEN LOWER(${staffTable.designation}) LIKE '%teacher%' THEN 'TEACHER'
+                        WHEN LOWER(${staffTable.designation}) LIKE '%account%' THEN 'ACCOUNTANT'
+                        WHEN LOWER(${staffTable.designation}) LIKE '%librarian%' THEN 'LIBRARIAN'
+                        WHEN LOWER(${staffTable.designation}) LIKE '%reception%' THEN 'RECEPTIONIST'
+                        WHEN LOWER(${staffTable.designation}) LIKE '%transport%' THEN 'TRANSPORT_MANAGER'
+                        WHEN LOWER(${staffTable.designation}) LIKE '%admin%' THEN 'SCHOOL_ADMIN'
+                        ELSE 'TEACHER'
+                    END, 'TEACHER')`
+            })
+            .from(staffTable)
+            .leftJoin(usersTable, eq(usersTable.id, staffTable.userId))
+            .where(eq(staffTable.instituteId, targetInstituteId));
+
+        // 2. Fetch Students roster
+        const studentsList = await db
+            .select({
+                id: studentsTable.id,
+                firstName: studentsTable.firstName,
+                lastName: studentsTable.lastName,
+                admissionNo: studentsTable.admissionNo,
+                rollNo: studentsTable.rollNo,
+                status: studentsTable.status,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                isActive: usersTable.isActive,
+            })
+            .from(studentsTable)
+            .leftJoin(usersTable, eq(usersTable.id, studentsTable.userId))
+            .where(
+                and(
+                    eq(studentsTable.instituteId, targetInstituteId),
+                    eq(studentsTable.status, 'ACTIVE')
+                )
+            );
+
+        // 3. Fetch Parents roster
+        const parentsList = await db
+            .select({
+                id: parentsTable.id,
+                fatherName: parentsTable.fatherName,
+                motherName: parentsTable.motherName,
+                primaryPhone: parentsTable.primaryPhone,
+                fatherEmail: parentsTable.fatherEmail,
+                studentId: parentsTable.studentId,
+            })
+            .from(parentsTable)
+            .where(eq(parentsTable.instituteId, targetInstituteId));
+
+        // 4. Build combined unified users payload
+        const unifiedUsers: any[] = [];
+
+        // Map Staff
+        staffList.forEach((s) => {
+            unifiedUsers.push({
+                id: s.id,
+                firstName: s.firstName || "Staff",
+                lastName: s.lastName || "Member",
+                employeeCode: s.employeeCode || `EMP-${s.id}`,
+                designation: s.designation || "Staff",
+                email: s.email || `${s.firstName?.toLowerCase()}@school.com`,
+                phone: s.phone || "N/A",
+                roleName: s.roleName,
+                isActive: s.isActive !== false
+            });
+        });
+
+        // Map Students
+        studentsList.forEach((st) => {
+            unifiedUsers.push({
+                id: st.id + 20000,
+                firstName: st.firstName || "Student",
+                lastName: st.lastName || "Member",
+                employeeCode: st.admissionNo ? `ADM-${st.admissionNo}` : `STUD-${st.id}`,
+                designation: `Student (Roll No: ${st.rollNo || "N/A"})`,
+                email: st.email || `${st.firstName?.toLowerCase()}@student.school.com`,
+                phone: st.phone || "N/A",
+                roleName: "STUDENT",
+                isActive: st.isActive !== false
+            });
+        });
+
+        // Map Parents
+        parentsList.forEach((p) => {
+            unifiedUsers.push({
+                id: p.id + 40000,
+                firstName: "Parent of",
+                lastName: p.fatherName || p.motherName || "Student",
+                employeeCode: `PAR-${p.id}`,
+                designation: "Parent / Guardian",
+                email: p.fatherEmail || `parent.${p.id}@school.com`,
+                phone: p.primaryPhone || "N/A",
+                roleName: "PARENT",
+                isActive: true
+            });
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Unified directory retrieved successfully",
+            data: unifiedUsers,
+            status: 200
+        });
+
+    } catch (error: any) {
+        console.error("Error in getUnifiedSchoolDirectory:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error loading directory",
+            error: error.message,
+            status: 500
+        });
+    }
+};
+
+export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getUnifiedSchoolDirectory };
 
 
 // TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)
