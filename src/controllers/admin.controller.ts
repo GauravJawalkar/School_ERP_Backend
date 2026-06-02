@@ -505,6 +505,7 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
         const staffList = await db
             .select({
                 id: staffTable.id,
+                userId: usersTable.id,
                 firstName: staffTable.firstName,
                 lastName: staffTable.lastName,
                 employeeCode: staffTable.employeeCode,
@@ -531,6 +532,7 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
         const studentsList = await db
             .select({
                 id: studentsTable.id,
+                userId: usersTable.id,
                 firstName: studentsTable.firstName,
                 lastName: studentsTable.lastName,
                 admissionNo: studentsTable.admissionNo,
@@ -569,6 +571,7 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
         staffList.forEach((s) => {
             unifiedUsers.push({
                 id: s.id,
+                userId: s.userId,
                 firstName: s.firstName || "Staff",
                 lastName: s.lastName || "Member",
                 employeeCode: s.employeeCode || `EMP-${s.id}`,
@@ -584,6 +587,7 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
         studentsList.forEach((st) => {
             unifiedUsers.push({
                 id: st.id + 20000,
+                userId: st.userId,
                 firstName: st.firstName || "Student",
                 lastName: st.lastName || "Member",
                 employeeCode: st.admissionNo ? `ADM-${st.admissionNo}` : `STUD-${st.id}`,
@@ -599,6 +603,7 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
         parentsList.forEach((p) => {
             unifiedUsers.push({
                 id: p.id + 40000,
+                userId: null,
                 firstName: "Parent of",
                 lastName: p.fatherName || p.motherName || "Student",
                 employeeCode: `PAR-${p.id}`,
