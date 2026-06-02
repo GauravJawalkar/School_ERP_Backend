@@ -1,19 +1,29 @@
 import { Router } from "express";
-import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute, getUnifiedSchoolDirectory } from "../controllers/admin.controller";
+import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute, getUnifiedSchoolDirectory, updateAcademicYearStatus } from "../controllers/admin.controller";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { accountant, schoolAdmin, superAdmin } from "../constants/auth.constants";
 
 const router = Router();
-// Create academic year for school
+// Create academic year for school (Super Admin Only)
 router
     .route('/createAcademicYear')
     .post(
         authenticateUser,
-        checkUserRoles([superAdmin, schoolAdmin, accountant]),
+        checkUserRoles([superAdmin]),
         checkUserPersmission(['academic_year.create']),
         createAcademicYear
+    );
+
+// Update status of academic year (Super Admin Only)
+router
+    .route('/updateAcademicYearStatus')
+    .put(
+        authenticateUser,
+        checkUserRoles([superAdmin]),
+        checkUserPersmission(['academic_year.update']),
+        updateAcademicYearStatus
     );
 
 // Create or add a staff for school

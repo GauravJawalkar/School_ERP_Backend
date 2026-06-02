@@ -298,7 +298,8 @@ const getAcademicYears = async (req: Request, res: Response) => {
         const academicYears = await db
             .select()
             .from(academicYearsTable)
-            .where(eq(academicYearsTable.instituteId, instituteId));
+            .where(eq(academicYearsTable.instituteId, instituteId))
+            .orderBy(academicYearsTable.id);
 
         return res.status(200).json({
             message: "Academic years fetched successfully",
@@ -627,7 +628,80 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
     }
 };
 
-export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getUnifiedSchoolDirectory };
+const updateAcademicYearStatus = async (req: Request, res: Response) => {
+    try {
+        const { id, isActive } = req.body;
+        const { instituteId, roles } = await getLoggedInUserDetails(req);
+
+        if (!roles.includes('SUPER_ADMIN')) {
+            return res.status(403).json({
+                message: "Unauthorized. Only Super Admins can manage academic year statuses.",
+                status: 403,
+            });
+        }
+
+        if (id === undefined || id === null || !instituteId) {
+            return res.status(400).json({
+                message: "Academic Year ID is required",
+                status: 400,
+            });
+        }
+
+        // Validate the academic year exists and belongs to this institute
+        const year = await db
+            .select()
+            .from(academicYearsTable)
+            .where(
+                and(
+                    eq(academicYearsTable.id, id),
+                    eq(academicYearsTable.instituteId, instituteId)
+                )
+            )
+            .limit(1);
+
+        if (year.length === 0) {
+            return res.status(404).json({
+                message: "Academic year not found for this institute",
+                status: 404,
+            });
+        }
+
+        // If setting active, deactivate all other years of this institute first
+        if (isActive) {
+            await db
+                .update(academicYearsTable)
+                .set({ isActive: false })
+                .where(eq(academicYearsTable.instituteId, instituteId));
+        }
+
+        // Update target year status
+        const [updatedYear] = await db
+            .update(academicYearsTable)
+            .set({ isActive })
+            .where(
+                and(
+                    eq(academicYearsTable.id, id),
+                    eq(academicYearsTable.instituteId, instituteId)
+                )
+            )
+            .returning();
+
+        return res.status(200).json({
+            message: `Academic year marked as ${isActive ? "active" : "inactive"} successfully`,
+            status: 200,
+            data: updatedYear,
+        });
+
+    } catch (error) {
+        console.error("Error updating academic year status: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error updating academic year status",
+            status: 500,
+        });
+    }
+};
+
+export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getUnifiedSchoolDirectory, updateAcademicYearStatus };
 
 
 // TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)
