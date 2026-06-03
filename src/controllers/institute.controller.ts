@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { db } from "../db";
-import { classesTable, classSubjectsTable, feeStructuresTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
-import { and, countDistinct, eq, sql } from "drizzle-orm";
+import { academicYearsTable, classesTable, classSubjectsTable, feeStructuresTable, feeHeadsTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
+import { and, countDistinct, eq, ne, sql } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
 import type { TokenUser } from "../interface";
@@ -183,10 +183,11 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
 
 const createSchoolClass = async (req: Request, res: Response) => {
     try {
-        const { className, academicYearId, capacity } = req.body;
-        const { instituteId } = await getLoggedInUserDetails(req)
+        const { className, academicYearId, capacity, instituteId: bodyInstituteId } = req.body;
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const targetInstituteId = isSuperAdmin && bodyInstituteId ? Number(bodyInstituteId) : loggedInInstId;
 
-        if (!instituteId || !className || !academicYearId) {
+        if (!targetInstituteId || !className || !academicYearId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 })
         }
 
@@ -196,7 +197,8 @@ const createSchoolClass = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(classesTable.className, className),
-                    eq(classesTable.academicYearId, academicYearId)
+                    eq(classesTable.academicYearId, academicYearId),
+                    eq(classesTable.instituteId, targetInstituteId)
                 )
             ).limit(1);
 
@@ -205,10 +207,10 @@ const createSchoolClass = async (req: Request, res: Response) => {
         }
 
         const [newClass] = await db.insert(classesTable).values({
-            instituteId,
+            instituteId: targetInstituteId,
             className,
             academicYearId,
-            capacity
+            capacity: capacity ? Number(capacity) : null
         }).returning();
 
         if (!newClass) {
@@ -230,25 +232,55 @@ const createClassSection = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
+        // Fetch class capacity details
+        const [targetClass] = await db
+            .select()
+            .from(classesTable)
+            .where(eq(classesTable.id, Number(classId)))
+            .limit(1);
+
+        if (!targetClass) {
+            return res.status(404).json({ message: 'Target class not found', status: 404 });
+        }
+
+        // Check if class has capacity constraint and if new section exceeds it
+        if (targetClass.capacity) {
+            const [sumResult] = await db
+                .select({
+                    total: sql<number>`COALESCE(SUM(${sectionsTable.capacity}), 0)`
+                })
+                .from(sectionsTable)
+                .where(eq(sectionsTable.classId, Number(classId)));
+
+            const currentTotalSectionCapacity = Number(sumResult?.total || 0);
+
+            if ((currentTotalSectionCapacity + Number(capacity || 0)) > targetClass.capacity) {
+                return res.status(400).json({
+                    message: `Total section capacity (${currentTotalSectionCapacity + Number(capacity || 0)}) will exceed the class capacity limit of ${targetClass.capacity} seats.`,
+                    status: 400
+                });
+            }
+        }
+
         const [existingSection] = await db
             .select()
             .from(sectionsTable)
             .where(
                 and(
                     eq(sectionsTable.name, name),
-                    eq(sectionsTable.classId, classId)
+                    eq(sectionsTable.classId, Number(classId))
                 )
             ).limit(1);
 
         if (existingSection) {
-            return res.status(400).json({ message: 'The section with this name already exist for this class', status: 400 });
+            return res.status(400).json({ message: 'The section with this name already exists for this class', status: 400 });
         }
 
         const [newSection] = await db.insert(sectionsTable).values({
             name,
-            classId,
-            classTeacherId,
-            capacity,
+            classId: Number(classId),
+            classTeacherId: classTeacherId ? Number(classTeacherId) : null,
+            capacity: capacity ? Number(capacity) : null,
             roomNumber
         }).returning();
 
@@ -521,13 +553,35 @@ const getSchoolDetails = async (req: Request, res: Response) => {
                     className: string;
                     orderIndex: number | null;
                     capacity: number | null;
+                    academicYearId: number;
+                    academicYearName: string;
+                    sections: {
+                        id: number;
+                        name: string;
+                        capacity: number | null;
+                        roomNumber: string | null;
+                        classTeacherId: number | null;
+                    }[];
                 }[]>`
                     COALESCE(
                         json_agg(DISTINCT jsonb_build_object(
                             'id', ${classesTable.id},
                             'className', ${classesTable.className},
                             'orderIndex', ${classesTable.orderIndex},
-                            'capacity', ${classesTable.capacity}
+                            'capacity', ${classesTable.capacity},
+                            'academicYearId', ${classesTable.academicYearId},
+                            'academicYearName', ${academicYearsTable.name},
+                            'sections', (
+                                SELECT COALESCE(json_agg(json_build_object(
+                                    'id', s.id,
+                                    'name', s.name,
+                                    'capacity', s.capacity,
+                                    'roomNumber', s."roomNumber",
+                                    'classTeacherId', s."classTeacherId"
+                                )), '[]')
+                                FROM "sectionsTable" s
+                                WHERE s."classId" = ${classesTable.id}
+                            )
                         )) FILTER (WHERE ${classesTable.id} IS NOT NULL),
                         '[]'
                     )
@@ -535,7 +589,11 @@ const getSchoolDetails = async (req: Request, res: Response) => {
 
                 // --- FEE STRUCTURES (Fee section) ---
                 feeStructures: sql<{
+                    id: number;
                     classId: number;
+                    feeHeadId: number;
+                    feeHeadName: string | null;
+                    feeType: string | null;
                     amount: string;
                     frequency: string;
                     isCompulsory: boolean;
@@ -543,7 +601,11 @@ const getSchoolDetails = async (req: Request, res: Response) => {
                 }[]>`
                     COALESCE(
                         json_agg(DISTINCT jsonb_build_object(
+                            'id', ${feeStructuresTable.id},
                             'classId', ${feeStructuresTable.classId},
+                            'feeHeadId', ${feeStructuresTable.feeHeadId},
+                            'feeHeadName', ${feeHeadsTable.feeName},
+                            'feeType', ${feeHeadsTable.feeType},
                             'amount', ${feeStructuresTable.amount},
                             'frequency', ${feeStructuresTable.frequency},
                             'isCompulsory', ${feeStructuresTable.isCompulsory},
@@ -582,7 +644,9 @@ const getSchoolDetails = async (req: Request, res: Response) => {
             })
             .from(instituteProfileTable)
             .leftJoin(classesTable, eq(classesTable.instituteId, instituteProfileTable.id))
+            .leftJoin(academicYearsTable, eq(classesTable.academicYearId, academicYearsTable.id))
             .leftJoin(feeStructuresTable, eq(feeStructuresTable.instituteId, instituteProfileTable.id))
+            .leftJoin(feeHeadsTable, eq(feeStructuresTable.feeHeadId, feeHeadsTable.id))
             .leftJoin(staffTable, eq(staffTable.instituteId, instituteProfileTable.id))
             .leftJoin(studentsTable, eq(studentsTable.instituteId, instituteProfileTable.id))
             .where(eq(instituteProfileTable.slug, slug))
@@ -821,4 +885,218 @@ const updateSchoolStatus = async (req: Request, res: Response) => {
     }
 }
 
-export { createSchool, createSchoolAdmin, createSchoolClass, createClassSection, createSubject, createClassSubject, allocateTeacherToSubject, getAllSchools, updateUserStatus, getSchoolDetails, updateSchoolDetails, updateSchoolStatus }
+const updateSchoolClass = async (req: Request, res: Response) => {
+    try {
+        const classId = Number(req.params.id);
+        const { className, academicYearId, capacity } = req.body;
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+
+        if (!classId) {
+            return res.status(400).json({ message: "Class ID is required", status: 400 });
+        }
+
+        const [existingClass] = await db
+            .select()
+            .from(classesTable)
+            .where(eq(classesTable.id, classId))
+            .limit(1);
+
+        if (!existingClass) {
+            return res.status(404).json({ message: "Class not found", status: 404 });
+        }
+
+        // Check RBAC context
+        if (!isSuperAdmin && existingClass.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Forbidden: You cannot modify another school's class", status: 403 });
+        }
+
+        // Check uniqueness if class name or academic year is changing
+        if ((className && className !== existingClass.className) || (academicYearId && Number(academicYearId) !== existingClass.academicYearId)) {
+            const checkName = className || existingClass.className;
+            const checkYear = academicYearId ? Number(academicYearId) : existingClass.academicYearId;
+
+            const [duplicateClass] = await db
+                .select()
+                .from(classesTable)
+                .where(
+                    and(
+                        eq(classesTable.className, checkName),
+                        eq(classesTable.academicYearId, checkYear),
+                        eq(classesTable.instituteId, existingClass.instituteId),
+                        ne(classesTable.id, classId)
+                    )
+                )
+                .limit(1);
+
+            if (duplicateClass) {
+                return res.status(400).json({ message: "A class with this name already exists for the selected academic year.", status: 400 });
+            }
+        }
+
+        const [updatedClass] = await db
+            .update(classesTable)
+            .set({
+                className: className || existingClass.className,
+                academicYearId: academicYearId ? Number(academicYearId) : existingClass.academicYearId,
+                capacity: capacity !== undefined ? Number(capacity) : existingClass.capacity,
+                updatedAt: new Date()
+            })
+            .where(eq(classesTable.id, classId))
+            .returning();
+
+        return res.status(200).json({ message: "Class Updated Successfully", data: updatedClass, status: 200 });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error updating class", error });
+    }
+};
+
+const deleteSchoolClass = async (req: Request, res: Response) => {
+    try {
+        const classId = Number(req.params.id);
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+
+        if (!classId) {
+            return res.status(400).json({ message: "Class ID is required", status: 400 });
+        }
+
+        const [existingClass] = await db
+            .select()
+            .from(classesTable)
+            .where(eq(classesTable.id, classId))
+            .limit(1);
+
+        if (!existingClass) {
+            return res.status(404).json({ message: "Class not found", status: 404 });
+        }
+
+        // Check RBAC context
+        if (!isSuperAdmin && existingClass.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Forbidden: You cannot delete another school's class", status: 403 });
+        }
+
+        await db.delete(classesTable).where(eq(classesTable.id, classId));
+
+        return res.status(200).json({ message: "Class Deleted Successfully", status: 200 });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error deleting class", error });
+    }
+};
+
+const updateClassSection = async (req: Request, res: Response) => {
+    try {
+        const sectionId = Number(req.params.id);
+        const { name, capacity, classTeacherId, roomNumber } = req.body;
+
+        if (!sectionId) {
+            return res.status(400).json({ message: 'Section ID is required', status: 400 });
+        }
+
+        const [existingSection] = await db
+            .select()
+            .from(sectionsTable)
+            .where(eq(sectionsTable.id, sectionId))
+            .limit(1);
+
+        if (!existingSection) {
+            return res.status(404).json({ message: 'Section not found', status: 404 });
+        }
+
+        const classId = existingSection.classId;
+
+        // Verify total capacity constraints if capacity is updated
+        if (capacity !== undefined && classId) {
+            const [targetClass] = await db
+                .select()
+                .from(classesTable)
+                .where(eq(classesTable.id, classId))
+                .limit(1);
+
+            if (targetClass && targetClass.capacity) {
+                const [sumResult] = await db
+                    .select({
+                        total: sql<number>`COALESCE(SUM(${sectionsTable.capacity}), 0)`
+                    })
+                    .from(sectionsTable)
+                    .where(
+                        and(
+                            eq(sectionsTable.classId, classId),
+                            ne(sectionsTable.id, sectionId)
+                        )
+                    );
+                const currentTotalSectionCapacity = Number(sumResult?.total || 0);
+
+                if ((currentTotalSectionCapacity + Number(capacity || 0)) > targetClass.capacity) {
+                    return res.status(400).json({
+                        message: `Total section capacity (${currentTotalSectionCapacity + Number(capacity || 0)}) will exceed the class capacity limit of ${targetClass.capacity} seats.`,
+                        status: 400
+                    });
+                }
+            }
+        }
+
+        const [updatedSection] = await db
+            .update(sectionsTable)
+            .set({
+                name: name || existingSection.name,
+                capacity: capacity !== undefined ? Number(capacity) : existingSection.capacity,
+                classTeacherId: classTeacherId !== undefined ? (classTeacherId ? Number(classTeacherId) : null) : existingSection.classTeacherId,
+                roomNumber: roomNumber !== undefined ? roomNumber : existingSection.roomNumber,
+                updatedAt: new Date()
+            })
+            .where(eq(sectionsTable.id, sectionId))
+            .returning();
+
+        return res.status(200).json({ message: 'Section updated Successfully', data: updatedSection, status: 200 });
+
+    } catch (error) {
+        return res.status(500).json({ message: 'Internal server error updating section', error, status: 500 });
+    }
+};
+
+const deleteClassSection = async (req: Request, res: Response) => {
+    try {
+        const sectionId = Number(req.params.id);
+
+        if (!sectionId) {
+            return res.status(400).json({ message: 'Section ID is required', status: 400 });
+        }
+
+        const [existingSection] = await db
+            .select()
+            .from(sectionsTable)
+            .where(eq(sectionsTable.id, sectionId))
+            .limit(1);
+
+        if (!existingSection) {
+            return res.status(404).json({ message: 'Section not found', status: 404 });
+        }
+
+        await db.delete(sectionsTable).where(eq(sectionsTable.id, sectionId));
+
+        return res.status(200).json({ message: 'Section deleted Successfully', status: 200 });
+
+    } catch (error) {
+        return res.status(500).json({ message: 'Internal server error deleting section', error, status: 500 });
+    }
+};
+
+export {
+    createSchool,
+    createSchoolAdmin,
+    createSchoolClass,
+    updateSchoolClass,
+    deleteSchoolClass,
+    createClassSection,
+    updateClassSection,
+    deleteClassSection,
+    createSubject,
+    createClassSubject,
+    allocateTeacherToSubject,
+    getAllSchools,
+    updateUserStatus,
+    getSchoolDetails,
+    updateSchoolDetails,
+    updateSchoolStatus
+};

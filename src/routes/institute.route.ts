@@ -1,5 +1,5 @@
 import Router from 'express'
-import { allocateTeacherToSubject, createClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, createSubject, getAllSchools, getSchoolDetails, updateSchoolDetails, updateSchoolStatus, updateUserStatus } from '../controllers/institute.controller';
+import { allocateTeacherToSubject, createClassSection, updateClassSection, deleteClassSection, createClassSubject, createSchool, createSchoolAdmin, createSchoolClass, updateSchoolClass, deleteSchoolClass, createSubject, getAllSchools, getSchoolDetails, updateSchoolDetails, updateSchoolStatus, updateUserStatus } from '../controllers/institute.controller';
 import { upload } from '../middlewares/multer.middleware';
 import { authenticateUser } from '../middlewares/authenticate.middleware';
 import { checkUserPersmission } from '../middlewares/checkPermission.middleware';
@@ -33,11 +33,33 @@ router
         createSchoolClass);
 
 router
+    .route('/class/:id')
+    .patch(
+        authenticateUser,
+        checkUserPersmission(['class.update']),
+        updateSchoolClass)
+    .delete(
+        authenticateUser,
+        checkUserPersmission(['class.delete']),
+        deleteSchoolClass);
+
+router
     .route('/createSection')
     .post(
         authenticateUser,
         checkUserPersmission(['class.create']),
         createClassSection);
+
+router
+    .route('/section/:id')
+    .patch(
+        authenticateUser,
+        checkUserPersmission(['class.update']),
+        updateClassSection)
+    .delete(
+        authenticateUser,
+        checkUserPersmission(['class.delete']),
+        deleteClassSection);
 
 router
     .route('/createSubject')

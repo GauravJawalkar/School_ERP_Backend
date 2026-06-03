@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
-import { assignFees, createFeeHead, createFeeStructure, createFeeInstallment, generateInvoice } from "../controllers/finance.controller";
+import { assignFees, createFeeHead, createFeeStructure, createFeeInstallment, generateInvoice, getFeeHeads, updateFeeStructure, deleteFeeStructure } from "../controllers/finance.controller";
 
 const router = Router();
 
@@ -15,12 +15,36 @@ router
         createFeeHead);
 
 router
+    .route('/feeHeads')
+    .get(
+        authenticateUser,
+        checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
+        checkUserPersmission(['fees.view']),
+        getFeeHeads
+    );
+
+router
     .route('/createFeeStructure')
     .post(
         authenticateUser,
         checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
         checkUserPersmission(['fees.create']),
         createFeeStructure);
+
+router
+    .route('/feeStructure/:id')
+    .patch(
+        authenticateUser,
+        checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
+        checkUserPersmission(['fees.update']),
+        updateFeeStructure
+    )
+    .delete(
+        authenticateUser,
+        checkUserRoles(['SCHOOL_ADMIN', 'SUPER_ADMIN', 'ACCOUNTANT']),
+        checkUserPersmission(['fees.update']),
+        deleteFeeStructure
+    );
 
 router
     .route('/assignFees/:id')

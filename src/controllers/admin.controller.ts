@@ -286,9 +286,10 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
 
 const getAcademicYears = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const targetInstituteId = isSuperAdmin && req.query.instituteId ? Number(req.query.instituteId) : loggedInInstId;
 
-        if (!instituteId) {
+        if (!targetInstituteId) {
             return res.status(400).json({
                 message: "Institute ID is required and must be a valid number",
                 status: 400,
@@ -298,7 +299,7 @@ const getAcademicYears = async (req: Request, res: Response) => {
         const academicYears = await db
             .select()
             .from(academicYearsTable)
-            .where(eq(academicYearsTable.instituteId, instituteId))
+            .where(eq(academicYearsTable.instituteId, targetInstituteId))
             .orderBy(academicYearsTable.id);
 
         return res.status(200).json({

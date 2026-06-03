@@ -9,10 +9,11 @@ import { getLoggedInUserDetails } from "../services/auth.service";
 // This controller creates a type of fee for a particular institute eg: Tution fee , transport fee, etc
 const createFeeHead = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req)
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
         const { feeName, feeType, description, taxPercentage } = req.body;
+        const targetInstituteId = isSuperAdmin && req.body.instituteId ? Number(req.body.instituteId) : loggedInInstId;
 
-        if (!instituteId || !feeName || !feeType) {
+        if (!targetInstituteId || !feeName || !feeType) {
             return res.status(400).json({
                 message: "Please provide required fields",
                 status: 400
@@ -25,7 +26,7 @@ const createFeeHead = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(feeHeadsTable.feeName, feeName),
-                    eq(feeHeadsTable.instituteId, instituteId)
+                    eq(feeHeadsTable.instituteId, targetInstituteId)
                 )
             ).limit(1);
 
@@ -39,7 +40,7 @@ const createFeeHead = async (req: Request, res: Response) => {
         const [newFeeHead] = await db
             .insert(feeHeadsTable)
             .values({
-                instituteId,
+                instituteId: targetInstituteId,
                 feeName,
                 feeType,
                 description,
@@ -69,10 +70,11 @@ const createFeeHead = async (req: Request, res: Response) => {
 // This controller creates feeStructure as per individual class for the institute
 const createFeeStructure = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req)
-        const { academicYearId, classId, feeHeadId, amount, frequency, isCompulsory } = req.body;
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const { academicYearId, classId, feeHeadId, amount, frequency, isCompulsory, dueDay } = req.body;
+        const targetInstituteId = isSuperAdmin && req.body.instituteId ? Number(req.body.instituteId) : loggedInInstId;
 
-        if (!academicYearId || !classId || !instituteId || !feeHeadId || !amount || !frequency) {
+        if (!academicYearId || !classId || !targetInstituteId || !feeHeadId || !amount || !frequency) {
             return res.status(400).json({
                 message: "Please provide all the required fields",
                 status: 400
@@ -86,7 +88,7 @@ const createFeeStructure = async (req: Request, res: Response) => {
                 and(
                     eq(feeStructuresTable.classId, classId),
                     eq(feeStructuresTable.feeHeadId, feeHeadId),
-                    eq(feeStructuresTable.instituteId, instituteId),
+                    eq(feeStructuresTable.instituteId, targetInstituteId),
                 )
             ).limit(1);
 
@@ -101,12 +103,13 @@ const createFeeStructure = async (req: Request, res: Response) => {
             .insert(feeStructuresTable)
             .values({
                 academicYearId,
-                instituteId,
+                instituteId: targetInstituteId,
                 classId,
                 feeHeadId,
                 amount,
                 frequency,
-                isCompulsory
+                isCompulsory,
+                dueDay
             }).returning();
 
         if (!newFeeStructure) {
@@ -619,4 +622,145 @@ const generateInvoice = async (req: Request, res: Response) => {
     }
 }
 
-export { createFeeHead, createFeeStructure, assignFees, generateInvoice, createFeeInstallment }
+const getFeeHeads = async (req: Request, res: Response) => {
+    try {
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const targetInstituteId = isSuperAdmin && req.query.instituteId ? Number(req.query.instituteId) : loggedInInstId;
+
+        if (!targetInstituteId) {
+            return res.status(400).json({
+                message: "Institute ID is required",
+                status: 400
+            });
+        }
+
+        const feeHeads = await db
+            .select()
+            .from(feeHeadsTable)
+            .where(eq(feeHeadsTable.instituteId, targetInstituteId));
+
+        return res.status(200).json({
+            message: "Fetched Fee Heads successfully",
+            data: feeHeads,
+            status: 200
+        });
+    } catch (error) {
+        console.error("Error fetching fee heads: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error fetching fee heads",
+            status: 500
+        });
+    }
+};
+
+const updateFeeStructure = async (req: Request, res: Response) => {
+    try {
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const id = Number(req.params.id);
+        const { amount, frequency, isCompulsory, dueDay } = req.body;
+
+        if (!id) {
+            return res.status(400).json({
+                message: "Fee Structure ID is required",
+                status: 400
+            });
+        }
+
+        // Fetch structure first to verify ownership
+        const [feeStructure] = await db
+            .select()
+            .from(feeStructuresTable)
+            .where(eq(feeStructuresTable.id, id))
+            .limit(1);
+
+        if (!feeStructure) {
+            return res.status(404).json({
+                message: "Fee Structure not found",
+                status: 404
+            });
+        }
+
+        if (!isSuperAdmin && feeStructure.instituteId !== loggedInInstId) {
+            return res.status(403).json({
+                message: "Forbidden: You cannot update fee structures for other schools",
+                status: 403
+            });
+        }
+
+        const [updatedStructure] = await db
+            .update(feeStructuresTable)
+            .set({
+                amount,
+                frequency,
+                isCompulsory,
+                dueDay,
+                updatedAt: new Date()
+            })
+            .where(eq(feeStructuresTable.id, id))
+            .returning();
+
+        return res.status(200).json({
+            message: "Fee Structure updated successfully",
+            data: updatedStructure,
+            status: 200
+        });
+    } catch (error) {
+        console.error("Error updating fee structure: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error updating fee structure",
+            status: 500
+        });
+    }
+};
+
+const deleteFeeStructure = async (req: Request, res: Response) => {
+    try {
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const id = Number(req.params.id);
+
+        if (!id) {
+            return res.status(400).json({
+                message: "Fee Structure ID is required",
+                status: 400
+            });
+        }
+
+        // Fetch structure to verify ownership
+        const [feeStructure] = await db
+            .select()
+            .from(feeStructuresTable)
+            .where(eq(feeStructuresTable.id, id))
+            .limit(1);
+
+        if (!feeStructure) {
+            return res.status(404).json({
+                message: "Fee Structure not found",
+                status: 404
+            });
+        }
+
+        if (!isSuperAdmin && feeStructure.instituteId !== loggedInInstId) {
+            return res.status(403).json({
+                message: "Forbidden: You cannot delete fee structures for other schools",
+                status: 403
+            });
+        }
+
+        await db
+            .delete(feeStructuresTable)
+            .where(eq(feeStructuresTable.id, id));
+
+        return res.status(200).json({
+            message: "Fee Structure deleted successfully",
+            status: 200
+        });
+    } catch (error) {
+        console.error("Error deleting fee structure: ", error);
+        return res.status(500).json({
+            message: "Internal Server Error deleting fee structure",
+            status: 500
+        });
+    }
+};
+
+export { createFeeHead, createFeeStructure, assignFees, generateInvoice, createFeeInstallment, getFeeHeads, updateFeeStructure, deleteFeeStructure }
