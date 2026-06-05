@@ -502,57 +502,52 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
             });
         }
 
-        // 1. Fetch Staff roster
-        const staffList = await db
+        // 1. Fetch all users from usersTable for targetInstituteId with role and optional staff/student links
+        const allUsersList = await db
             .select({
-                id: staffTable.id,
                 userId: usersTable.id,
-                firstName: staffTable.firstName,
-                lastName: staffTable.lastName,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                isActive: usersTable.isActive,
+                roleName: rolesTable.name,
+                
+                // Staff details
+                staffId: staffTable.id,
                 employeeCode: staffTable.employeeCode,
                 designation: staffTable.designation,
-                email: usersTable.email,
-                phone: usersTable.phone,
-                isActive: usersTable.isActive,
-                roleName: sql<string>`COALESCE(
-                    CASE 
-                        WHEN LOWER(${staffTable.designation}) LIKE '%teacher%' THEN 'TEACHER'
-                        WHEN LOWER(${staffTable.designation}) LIKE '%account%' THEN 'ACCOUNTANT'
-                        WHEN LOWER(${staffTable.designation}) LIKE '%librarian%' THEN 'LIBRARIAN'
-                        WHEN LOWER(${staffTable.designation}) LIKE '%reception%' THEN 'RECEPTIONIST'
-                        WHEN LOWER(${staffTable.designation}) LIKE '%transport%' THEN 'TRANSPORT_MANAGER'
-                        WHEN LOWER(${staffTable.designation}) LIKE '%admin%' THEN 'SCHOOL_ADMIN'
-                        ELSE 'TEACHER'
-                    END, 'TEACHER')`
-            })
-            .from(staffTable)
-            .leftJoin(usersTable, eq(usersTable.id, staffTable.userId))
-            .where(eq(staffTable.instituteId, targetInstituteId));
 
-        // 2. Fetch Students roster
-        const studentsList = await db
-            .select({
-                id: studentsTable.id,
-                userId: usersTable.id,
-                firstName: studentsTable.firstName,
-                lastName: studentsTable.lastName,
+                // Student details
+                studentId: studentsTable.id,
                 admissionNo: studentsTable.admissionNo,
                 rollNo: studentsTable.rollNo,
-                status: studentsTable.status,
-                email: usersTable.email,
-                phone: usersTable.phone,
-                isActive: usersTable.isActive,
+                studentStatus: studentsTable.status,
             })
-            .from(studentsTable)
-            .leftJoin(usersTable, eq(usersTable.id, studentsTable.userId))
-            .where(
-                and(
-                    eq(studentsTable.instituteId, targetInstituteId),
-                    eq(studentsTable.status, 'ACTIVE')
-                )
-            );
+            .from(usersTable)
+            .leftJoin(userRoleTable, eq(userRoleTable.userId, usersTable.id))
+            .leftJoin(rolesTable, eq(rolesTable.id, userRoleTable.roleId))
+            .leftJoin(staffTable, eq(staffTable.userId, usersTable.id))
+            .leftJoin(studentsTable, eq(studentsTable.userId, usersTable.id))
+            .where(eq(usersTable.instituteId, targetInstituteId));
 
-        // 3. Fetch Parents roster
+        // Group by userId to handle any potential multi-role duplicates
+        const userMap = new Map<string, any>();
+        allUsersList.forEach((u) => {
+            if (userMap.has(u.userId)) {
+                const existing = userMap.get(u.userId);
+                if (u.roleName && !existing.roleNames.includes(u.roleName)) {
+                    existing.roleNames.push(u.roleName);
+                }
+                return;
+            }
+            userMap.set(u.userId, {
+                ...u,
+                roleNames: u.roleName ? [u.roleName] : []
+            });
+        });
+
+        // 2. Fetch Parents roster
         const parentsList = await db
             .select({
                 id: parentsTable.id,
@@ -565,39 +560,65 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
             .from(parentsTable)
             .where(eq(parentsTable.instituteId, targetInstituteId));
 
-        // 4. Build combined unified users payload
+        // 3. Build unified list
         const unifiedUsers: any[] = [];
 
-        // Map Staff
-        staffList.forEach((s) => {
-            unifiedUsers.push({
-                id: s.id,
-                userId: s.userId,
-                firstName: s.firstName || "Staff",
-                lastName: s.lastName || "Member",
-                employeeCode: s.employeeCode || `EMP-${s.id}`,
-                designation: s.designation || "Staff",
-                email: s.email || `${s.firstName?.toLowerCase()}@school.com`,
-                phone: s.phone || "N/A",
-                roleName: s.roleName,
-                isActive: s.isActive !== false
-            });
-        });
+        userMap.forEach((u) => {
+            const primaryRole = u.roleNames[0] || "USER";
 
-        // Map Students
-        studentsList.forEach((st) => {
-            unifiedUsers.push({
-                id: st.id + 20000,
-                userId: st.userId,
-                firstName: st.firstName || "Student",
-                lastName: st.lastName || "Member",
-                employeeCode: st.admissionNo ? `ADM-${st.admissionNo}` : `STUD-${st.id}`,
-                designation: `Student (Roll No: ${st.rollNo || "N/A"})`,
-                email: st.email || `${st.firstName?.toLowerCase()}@student.school.com`,
-                phone: st.phone || "N/A",
-                roleName: "STUDENT",
-                isActive: st.isActive !== false
-            });
+            // Student Case
+            if (u.studentId) {
+                // Keep only ACTIVE status students as per previous requirements
+                if (u.studentStatus !== 'ACTIVE') {
+                    return;
+                }
+                unifiedUsers.push({
+                    id: u.studentId + 20000,
+                    userId: u.userId,
+                    firstName: u.firstName || "Student",
+                    lastName: u.lastName || "Member",
+                    employeeCode: u.admissionNo ? `ADM-${u.admissionNo}` : `STUD-${u.studentId}`,
+                    designation: `Student (Roll No: ${u.rollNo || "N/A"})`,
+                    email: u.email,
+                    phone: u.phone || "N/A",
+                    roleName: "STUDENT",
+                    isActive: u.isActive !== false
+                });
+            }
+            // Staff Case
+            else if (u.staffId) {
+                unifiedUsers.push({
+                    id: u.staffId,
+                    userId: u.userId,
+                    firstName: u.firstName || "Staff",
+                    lastName: u.lastName || "Member",
+                    employeeCode: u.employeeCode || `EMP-${u.staffId}`,
+                    designation: u.designation || "Staff",
+                    email: u.email,
+                    phone: u.phone || "N/A",
+                    roleName: primaryRole,
+                    isActive: u.isActive !== false
+                });
+            }
+            // Other System users (e.g. SCHOOL_ADMIN)
+            else {
+                // Ignore SUPER_ADMIN from school local directory
+                if (primaryRole === "SUPER_ADMIN") {
+                    return;
+                }
+                unifiedUsers.push({
+                    id: u.userId, // UUID is unique and works perfectly as React key
+                    userId: u.userId,
+                    firstName: u.firstName || "User",
+                    lastName: u.lastName || "Member",
+                    employeeCode: `ADM-${u.userId.substring(0, 8).toUpperCase()}`,
+                    designation: primaryRole === "SCHOOL_ADMIN" ? "School Administrator" : (primaryRole || "User"),
+                    email: u.email,
+                    phone: u.phone || "N/A",
+                    roleName: primaryRole,
+                    isActive: u.isActive !== false
+                });
+            }
         });
 
         // Map Parents
