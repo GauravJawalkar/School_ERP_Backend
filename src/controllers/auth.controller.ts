@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { instituteProfileTable, permissionsTable, resetPasswordTable, rolePermissionTable, rolesTable, userRoleTable, usersTable } from "../models";
+import { instituteProfileTable, permissionsTable, resetPasswordTable, rolePermissionTable, rolesTable, userRoleTable, usersTable, staffTable, studentsTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from 'bcrypt'
@@ -420,4 +420,87 @@ const refreshToken = async (req: Request, res: Response) => {
     }
 }
 
-export { signupUser, loginUser, forgotPassword, resetPassword, refreshToken }
+const updateProfile = async (req: Request, res: Response) => {
+    try {
+        const userId = (req.user && typeof req.user !== "string" && "id" in req.user) ? (req.user as TokenUser).id : undefined;
+
+        if (!userId) {
+            return res.status(401).json({ status: 401, message: "Unauthorized access" });
+        }
+
+        const { firstName, lastName, email, phone, gender } = req.body;
+
+        if ([firstName, lastName, email, phone, gender].some((field) => !field || field?.trim() === "")) {
+            return res.status(400).json({ status: 400, message: "All profile fields are required" });
+        }
+
+        // Check for duplicate email
+        const existingEmail = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.email, email))
+            .limit(1);
+
+        const firstMatch = existingEmail[0];
+
+        if (firstMatch && firstMatch.id !== userId) {
+            return res.status(409).json({ status: 409, message: "User with this email already exists" });
+        }
+
+        // Update main users table
+        const updatedUsersList = await db
+            .update(usersTable)
+            .set({
+                firstName,
+                lastName,
+                email,
+                phone,
+                gender,
+                updatedAt: new Date()
+            })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        const updatedUser = updatedUsersList[0];
+
+        if (!updatedUser) {
+            return res.status(404).json({ status: 404, message: "User not found" });
+        }
+
+        // Sync staff details if user is staff
+        await db
+            .update(staffTable)
+            .set({ firstName, lastName })
+            .where(eq(staffTable.userId, userId));
+
+        // Sync student details if user is student
+        await db
+            .update(studentsTable)
+            .set({ firstName, lastName })
+            .where(eq(studentsTable.userId, userId));
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            status: 200,
+            data: {
+                id: updatedUser.id,
+                firstName: updatedUser.firstName,
+                lastName: updatedUser.lastName,
+                email: updatedUser.email,
+                phone: updatedUser.phone,
+                gender: updatedUser.gender,
+            }
+        });
+    } catch (error: any) {
+        console.error("Error in updateProfile:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error updating profile",
+            error: error.message,
+            status: 500
+        });
+    }
+};
+
+export { signupUser, loginUser, forgotPassword, resetPassword, refreshToken, updateProfile }
