@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
-import { admissionsTable, feeStructuresTable, parentsTable, rolesTable, studentEnrollmentTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable } from "../models";
+import { admissionsTable, feeStructuresTable, parentsTable, rolesTable, studentEnrollmentTable, studentFeeAssignmentsTable, studentsTable, userRoleTable, usersTable, classesTable, academicYearsTable, instituteProfileTable } from "../models";
 import { and, eq } from "drizzle-orm";
 import bcrypt from 'bcrypt'
 import type { TokenUser } from "../interface";
@@ -9,10 +9,13 @@ import { getLoggedInUserDetails } from "../services/auth.service";
 
 const createAddmission = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req);
-        const { academicYearId, admissionDate, name, board, parentPhoneNo, applicationStatus, classId } = req.body;
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
+        const { academicYearId, admissionDate, name, board, parentPhoneNo, applicationStatus, classId, instituteId: reqInstId } = req.body;
 
-        if (!academicYearId || !admissionDate || !instituteId || !name || !board || !parentPhoneNo || !classId) {
+        const targetInstituteId = (isSuperAdmin && reqInstId) ? Number(reqInstId) : loggedInInstId;
+
+        if (!academicYearId || !admissionDate || !targetInstituteId || !name || !board || !parentPhoneNo || !classId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
@@ -23,7 +26,7 @@ const createAddmission = async (req: Request, res: Response) => {
                 and(
                     eq(admissionsTable.name, name),
                     eq(admissionsTable.academicYearId, academicYearId),
-                    eq(admissionsTable.instituteId, instituteId),
+                    eq(admissionsTable.instituteId, targetInstituteId),
                     eq(admissionsTable.classId, classId)
                 )
             ).limit(1);
@@ -37,7 +40,7 @@ const createAddmission = async (req: Request, res: Response) => {
             .values({
                 academicYearId,
                 admissionDate,
-                instituteId,
+                instituteId: targetInstituteId,
                 name,
                 board,
                 parentPhoneNo,
@@ -63,11 +66,33 @@ const createAddmission = async (req: Request, res: Response) => {
 const approveAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.id);
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
+
         const { firstName, lastName, email, phone, gender, DOB, fatherName, motherName, address } = req.body;
         const roleName = "STUDENT";
 
-        if (!firstName || !lastName || !instituteId || !email || !phone || !gender || !DOB || !fatherName || !motherName || !address) {
+        if (!addmissionId) {
+            return res.status(400).json({ message: 'Please provide valid admission ID', status: 400 });
+        }
+
+        const [admission] = await db
+            .select()
+            .from(admissionsTable)
+            .where(eq(admissionsTable.id, addmissionId))
+            .limit(1);
+
+        if (!admission) {
+            return res.status(404).json({ message: "Admission record not found", status: 404 });
+        }
+
+        if (!isSuperAdmin && admission.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's admissions.", status: 403 });
+        }
+
+        const targetInstituteId = admission.instituteId;
+
+        if (!firstName || !lastName || !targetInstituteId || !email || !phone || !gender || !DOB || !fatherName || !motherName || !address) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
@@ -83,10 +108,6 @@ const approveAddmission = async (req: Request, res: Response) => {
 
         if (exstingUser) {
             return res.status(400).json({ message: 'This email is already in use', status: 400 });
-        }
-
-        if (!addmissionId) {
-            return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
         const [alreadyApprovedAddmission] = await db
@@ -129,7 +150,7 @@ const approveAddmission = async (req: Request, res: Response) => {
             .values({
                 firstName,
                 lastName,
-                instituteId,
+                instituteId: targetInstituteId,
                 email,
                 phone,
                 gender,
@@ -183,7 +204,7 @@ const approveAddmission = async (req: Request, res: Response) => {
         const [newStudentRecord] = await db
             .insert(studentsTable)
             .values({
-                instituteId,
+                instituteId: targetInstituteId,
                 admissionNo: addmissionId,
                 userId: newUser.id,
                 firstName,
@@ -208,7 +229,7 @@ const approveAddmission = async (req: Request, res: Response) => {
                 and(
                     eq(feeStructuresTable.classId, approveAddmission.classId),
                     eq(feeStructuresTable.academicYearId, approveAddmission.academicYearId),
-                    eq(feeStructuresTable.instituteId, instituteId),
+                    eq(feeStructuresTable.instituteId, targetInstituteId),
                     eq(feeStructuresTable.isCompulsory, true)
                 )
             );
@@ -226,7 +247,7 @@ const approveAddmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(studentFeeAssignmentsTable.studentId, newStudentRecord.id),
-                    eq(studentFeeAssignmentsTable.instituteId, instituteId),
+                    eq(studentFeeAssignmentsTable.instituteId, targetInstituteId),
                 )
             ).limit(1);
 
@@ -255,7 +276,7 @@ const approveAddmission = async (req: Request, res: Response) => {
 
             return {
                 studentId: newStudentRecord.id,
-                instituteId,
+                instituteId: targetInstituteId,
                 feeStructureId: feeStructure.id,
                 customAmount: null, // Can be set for individual fee heads if needed
                 discountPercentage: null,
@@ -299,7 +320,7 @@ const approveAddmission = async (req: Request, res: Response) => {
             .insert(parentsTable)
             .values({
                 studentId: newStudentRecord?.id,
-                instituteId,
+                instituteId: targetInstituteId,
                 fatherName,
                 motherName,
                 primaryPhone: phone,
@@ -341,7 +362,7 @@ const approveAddmission = async (req: Request, res: Response) => {
                 parentEmail: email,
                 studentName: firstName,
                 temporaryPassword: autoGeneratedPassword,
-                instituteId: instituteId
+                instituteId: targetInstituteId
             }
         );
 
@@ -373,10 +394,11 @@ const approveAddmission = async (req: Request, res: Response) => {
 // update the addmission status
 const updateAddmissionStatus = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
         const { status, addmissionId } = req.body;
 
-        if (!status || !addmissionId || !instituteId) {
+        if (!status || !addmissionId || !loggedInInstId) {
             return res.status(400).json({
                 message: "Please provide required fields",
                 status: 400
@@ -389,23 +411,28 @@ const updateAddmissionStatus = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, addmissionId),
-                    eq(admissionsTable.instituteId, instituteId),
                     eq(admissionsTable.isDeleted, false)
                 )
             ).limit(1);
 
         if (!addmission) {
             return res.status(404).json({
-                message: "Addmission with the admissionId not found in this institute",
+                message: "Addmission with the admissionId not found",
                 status: 404
             })
+        }
+
+        if (!isSuperAdmin && addmission.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's admissions.", status: 403 });
         }
 
         const [updateAddmissionStatus] = await db
             .update(admissionsTable)
             .set({
                 applicationStatus: status
-            }).returning({
+            })
+            .where(eq(admissionsTable.id, addmissionId))
+            .returning({
                 admissionId: admissionsTable.id,
                 instituteId: admissionsTable.instituteId,
                 status: admissionsTable.applicationStatus
@@ -418,7 +445,7 @@ const updateAddmissionStatus = async (req: Request, res: Response) => {
             })
         }
 
-        return res.json(200).json({
+        return res.status(200).json({
             message: "Admission status updated successfully",
             status: 200,
             data: updateAddmissionStatus
@@ -437,9 +464,10 @@ const updateAddmissionStatus = async (req: Request, res: Response) => {
 const deleteAddmission = async (req: Request, res: Response) => {
     try {
         const addmissionId = Number(req.params.addmissionId);
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
 
-        if (!addmissionId || !instituteId) {
+        if (!addmissionId || (!isSuperAdmin && !loggedInInstId)) {
             return res.status(400).json({
                 message: "Please provide valid fields",
                 status: 400
@@ -452,7 +480,6 @@ const deleteAddmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, addmissionId),
-                    eq(admissionsTable.instituteId, instituteId),
                     eq(admissionsTable.isDeleted, false)
                 )
             ).limit(1);
@@ -462,6 +489,10 @@ const deleteAddmission = async (req: Request, res: Response) => {
                 message: "Addmission not found",
                 status: 404
             })
+        }
+
+        if (!isSuperAdmin && addmission.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's admissions.", status: 403 });
         }
 
         const status = addmission.applicationStatus;
@@ -476,10 +507,7 @@ const deleteAddmission = async (req: Request, res: Response) => {
         const [deleteAddmission] = await db
             .delete(admissionsTable)
             .where(
-                and(
-                    eq(admissionsTable.id, addmissionId),
-                    eq(admissionsTable.instituteId, instituteId)
-                )
+                eq(admissionsTable.id, addmissionId)
             ).returning();
 
         if (!deleteAddmission) {
@@ -507,11 +535,11 @@ const deleteAddmission = async (req: Request, res: Response) => {
 const softDeleteAddmission = async (req: Request, res: Response) => {
     try {
         const admissionId = Number(req.params.admissionId);
-        const { instituteId, loggedInUserId: userId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, roles, loggedInUserId: userId } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
         const { reason } = req.body || "none";
-        const numInstituteId = Number(instituteId);
 
-        if (!admissionId || !numInstituteId || isNaN(admissionId)) {
+        if (!admissionId || (!isSuperAdmin && !loggedInInstId) || isNaN(admissionId)) {
             return res.status(400).json({
                 message: "Valid admission ID is required",
                 status: 400
@@ -525,7 +553,6 @@ const softDeleteAddmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, admissionId),
-                    eq(admissionsTable.instituteId, numInstituteId),
                     eq(admissionsTable.isDeleted, false)
                 )
             )
@@ -536,6 +563,10 @@ const softDeleteAddmission = async (req: Request, res: Response) => {
                 success: false,
                 message: "Admission not found or already deleted"
             });
+        }
+
+        if (!isSuperAdmin && admission.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's admissions.", status: 403 });
         }
 
         // Check if approved and has enrolled student
@@ -596,9 +627,10 @@ const softDeleteAddmission = async (req: Request, res: Response) => {
 const restoreAdmission = async (req: Request, res: Response) => {
     try {
         const admissionId = Number(req.params.admissionId);
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
 
-        if (!admissionId || !instituteId) {
+        if (!admissionId || !loggedInInstId) {
             return res.status(400).json({
                 message: "Valid admission ID is required",
                 status: 400
@@ -611,7 +643,6 @@ const restoreAdmission = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(admissionsTable.id, admissionId),
-                    eq(admissionsTable.instituteId, instituteId),
                     eq(admissionsTable.isDeleted, true)
                 )
             )
@@ -622,6 +653,10 @@ const restoreAdmission = async (req: Request, res: Response) => {
                 success: false,
                 message: "Deleted admission not found"
             });
+        }
+
+        if (!isSuperAdmin && admission.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's admissions.", status: 403 });
         }
 
         const [restored] = await db
@@ -661,33 +696,65 @@ const restoreAdmission = async (req: Request, res: Response) => {
 // This will get all approved admissions for an institute in a particular academic year
 const getAllAddmissions = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
         const yearId = Number(req.params.yearId);
 
-        if (!instituteId || !yearId) {
+        let targetInstituteId = loggedInInstId;
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
+
+        if (isSuperAdmin && req.query.instituteId) {
+            targetInstituteId = Number(req.query.instituteId);
+        }
+
+        if (!targetInstituteId || !yearId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
+
+        const statusFilter = req.query.status as string;
+
+        const conditions = [
+            eq(admissionsTable.instituteId, targetInstituteId),
+            eq(admissionsTable.isDeleted, false),
+            eq(admissionsTable.academicYearId, yearId)
+        ];
+
+        if (statusFilter && statusFilter.toUpperCase() !== 'ALL') {
+            conditions.push(eq(admissionsTable.applicationStatus, statusFilter.toUpperCase() as any));
+        }
+
         const allAdmissions = await db
-            .select()
+            .select({
+                id: admissionsTable.id,
+                academicYearId: admissionsTable.academicYearId,
+                academicYearName: academicYearsTable.name,
+                admissionDate: admissionsTable.admissionDate,
+                instituteId: admissionsTable.instituteId,
+                schoolName: instituteProfileTable.schoolName,
+                userId: admissionsTable.userId,
+                name: admissionsTable.name,
+                board: admissionsTable.board,
+                parentPhoneNo: admissionsTable.parentPhoneNo,
+                applicationStatus: admissionsTable.applicationStatus,
+                classId: admissionsTable.classId,
+                className: classesTable.className,
+                createdAt: admissionsTable.createdAt,
+            })
             .from(admissionsTable)
-            .where(and(
-                eq(admissionsTable.instituteId, instituteId),
-                eq(admissionsTable.isDeleted, false),
-                eq(admissionsTable.applicationStatus, 'APPROVED'),
-                eq(admissionsTable.academicYearId, yearId)
-            ));
+            .leftJoin(classesTable, eq(admissionsTable.classId, classesTable.id))
+            .leftJoin(academicYearsTable, eq(admissionsTable.academicYearId, academicYearsTable.id))
+            .leftJoin(instituteProfileTable, eq(admissionsTable.instituteId, instituteProfileTable.id))
+            .where(and(...conditions));
 
         return res.status(200).json({
-            message: `All Admissions for instituteId: ${instituteId} `,
+            message: `Admissions retrieved successfully`,
             data: allAdmissions,
             status: 200
-        })
-
+        });
 
     } catch (error) {
-        console.log("Error getting all addmissions: ", error);
+        console.error("Error getting all admissions:", error);
         return res.status(500).json({
-            message: "Internal Server Error getting all addmissions",
+            message: "Internal Server Error getting all admissions",
             status: 500,
         });
     }
@@ -695,10 +762,11 @@ const getAllAddmissions = async (req: Request, res: Response) => {
 
 const getAddmission = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req)
+        const { instituteId: loggedInInstId, roles } = await getLoggedInUserDetails(req);
+        const isSuperAdmin = roles.includes("SUPER_ADMIN");
         const addmissionId = Number(req.params.addmissionId);
 
-        if (!addmissionId || !instituteId) {
+        if (!addmissionId || !loggedInInstId) {
             return res.status(400).json({
                 message: 'Please provide required fields',
                 status: 400
@@ -706,28 +774,49 @@ const getAddmission = async (req: Request, res: Response) => {
         }
 
         const [addmission] = await db
-            .select()
+            .select({
+                id: admissionsTable.id,
+                academicYearId: admissionsTable.academicYearId,
+                academicYearName: academicYearsTable.name,
+                admissionDate: admissionsTable.admissionDate,
+                instituteId: admissionsTable.instituteId,
+                schoolName: instituteProfileTable.schoolName,
+                userId: admissionsTable.userId,
+                name: admissionsTable.name,
+                board: admissionsTable.board,
+                parentPhoneNo: admissionsTable.parentPhoneNo,
+                applicationStatus: admissionsTable.applicationStatus,
+                classId: admissionsTable.classId,
+                className: classesTable.className,
+                createdAt: admissionsTable.createdAt,
+            })
             .from(admissionsTable)
+            .leftJoin(classesTable, eq(admissionsTable.classId, classesTable.id))
+            .leftJoin(academicYearsTable, eq(admissionsTable.academicYearId, academicYearsTable.id))
+            .leftJoin(instituteProfileTable, eq(admissionsTable.instituteId, instituteProfileTable.id))
             .where(
                 and(
                     eq(admissionsTable.id, addmissionId),
-                    eq(admissionsTable.instituteId, instituteId),
                     eq(admissionsTable.isDeleted, false)
                 )
             ).limit(1);
 
         if (!addmission) {
-            return res.status(400).json({
-                message: "No addmission for this id",
-                status: 400
-            })
+            return res.status(404).json({
+                message: "No admission found for this ID",
+                status: 404
+            });
+        }
+
+        if (!isSuperAdmin && addmission.instituteId !== loggedInInstId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to view this admission.", status: 403 });
         }
 
         return res.status(200).json({
             message: "Addmission found",
             data: addmission,
             status: 200
-        })
+        });
 
     } catch (error) {
         console.log("Error getting specific addmission: ", error);
