@@ -562,6 +562,14 @@ const getSchoolDetails = async (req: Request, res: Response) => {
                         roomNumber: string | null;
                         classTeacherId: number | null;
                     }[];
+                    classSubjects: {
+                        id: number;
+                        subjectId: number;
+                        displayName: string;
+                        isCompulsory: boolean;
+                        subjectName: string;
+                        subjectType: string;
+                    }[];
                 }[]>`
                     COALESCE(
                         json_agg(DISTINCT jsonb_build_object(
@@ -581,6 +589,19 @@ const getSchoolDetails = async (req: Request, res: Response) => {
                                 )), '[]')
                                 FROM "sectionsTable" s
                                 WHERE s."classId" = ${classesTable.id}
+                            ),
+                            'classSubjects', (
+                                SELECT COALESCE(json_agg(json_build_object(
+                                    'id', cs.id,
+                                    'subjectId', cs."subjectId",
+                                    'displayName', cs."displayName",
+                                    'isCompulsory', cs."isCompulsory",
+                                    'subjectName', sub.name,
+                                    'subjectType', sub.type
+                                )), '[]')
+                                FROM "classSubjectsTable" cs
+                                INNER JOIN "subjectsTable" sub ON cs."subjectId" = sub.id
+                                WHERE cs."classId" = ${classesTable.id}
                             )
                         )) FILTER (WHERE ${classesTable.id} IS NOT NULL),
                         '[]'

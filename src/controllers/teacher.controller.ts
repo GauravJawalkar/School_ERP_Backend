@@ -6,9 +6,15 @@ import {
     teacherProfileTable,
     rolesTable,
     userRoleTable,
-    instituteProfileTable
+    instituteProfileTable,
+    sectionsTable,
+    classesTable,
+    subjectsTable,
+    classSubjectsTable,
+    subjectAllocationsTable,
+    academicYearsTable
 } from "../models";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { getLoggedInUserDetails } from "../services/auth.service";
 
@@ -62,11 +68,79 @@ export const getTeachers = async (req: Request, res: Response) => {
             .leftJoin(instituteProfileTable, eq(teacherProfileTable.instituteId, instituteProfileTable.id))
             .where(eq(teacherProfileTable.instituteId, targetInstituteId));
 
+        const staffIds = teachers.map((t) => t.staffId).filter(Boolean) as number[];
+
+        let classTeacherAssignments: any[] = [];
+        let subjectAllocations: any[] = [];
+
+        if (staffIds.length > 0) {
+            // Fetch class teacher assignments
+            classTeacherAssignments = await db
+                .select({
+                    staffId: sectionsTable.classTeacherId,
+                    classId: classesTable.id,
+                    className: classesTable.className,
+                    sectionId: sectionsTable.id,
+                    sectionName: sectionsTable.name
+                })
+                .from(sectionsTable)
+                .innerJoin(classesTable, eq(sectionsTable.classId, classesTable.id))
+                .where(inArray(sectionsTable.classTeacherId, staffIds));
+
+            // Fetch subject allocations
+            subjectAllocations = await db
+                .select({
+                    staffId: subjectAllocationsTable.teacherId,
+                    classId: classesTable.id,
+                    className: classesTable.className,
+                    sectionId: sectionsTable.id,
+                    sectionName: sectionsTable.name,
+                    subjectId: subjectsTable.id,
+                    subjectName: subjectsTable.name
+                })
+                .from(subjectAllocationsTable)
+                .innerJoin(classesTable, eq(subjectAllocationsTable.classId, classesTable.id))
+                .innerJoin(sectionsTable, eq(subjectAllocationsTable.sectionId, sectionsTable.id))
+                .innerJoin(classSubjectsTable, eq(subjectAllocationsTable.classSubjectId, classSubjectsTable.id))
+                .innerJoin(subjectsTable, eq(classSubjectsTable.subjectId, subjectsTable.id))
+                .where(inArray(subjectAllocationsTable.teacherId, staffIds));
+        }
+
+        // Map assignments to teachers
+        const teachersWithAssignments = teachers.map((teacher) => {
+            const classTeacherFor = classTeacherAssignments
+                .filter((assign) => assign.staffId === teacher.staffId)
+                .map((assign) => ({
+                    classId: assign.classId,
+                    className: assign.className,
+                    sectionId: assign.sectionId,
+                    sectionName: assign.sectionName
+                }));
+
+            const subjectTeacherFor = subjectAllocations
+                .filter((alloc) => alloc.staffId === teacher.staffId)
+                .map((alloc) => ({
+                    classId: alloc.classId,
+                    className: alloc.className,
+                    sectionId: alloc.sectionId,
+                    sectionName: alloc.sectionName,
+                    subjectId: alloc.subjectId,
+                    subjectName: alloc.subjectName
+                }));
+
+            return {
+                ...teacher,
+                isClassTeacher: classTeacherFor.length > 0 || !!teacher.isClassTeacher,
+                classTeacherFor,
+                subjectTeacherFor
+            };
+        });
+
         return res.status(200).json({
             success: true,
             message: "Teachers retrieved successfully",
             status: 200,
-            data: teachers
+            data: teachersWithAssignments
         });
     } catch (error) {
         console.error("Error in getTeachers:", error);
@@ -99,8 +173,9 @@ export const createTeacher = async (req: Request, res: Response) => {
             bankDetails,
             qualification,
             majorSubjects,
-            isClassTeacher,
-            reqInstId
+            reqInstId,
+            classTeacherSections,
+            subjectTeacherAllocations
         } = req.body;
 
         const targetInstituteId = (isSuperAdmin && reqInstId) ? Number(reqInstId) : loggedInInstId;
@@ -206,9 +281,51 @@ export const createTeacher = async (req: Request, res: Response) => {
                     instituteId: targetInstituteId,
                     qualification: qualification || [],
                     majorSubjects: majorSubjects || [],
-                    isClassTeacher: !!isClassTeacher
+                    isClassTeacher: (classTeacherSections && classTeacherSections.length > 0)
                 })
                 .returning();
+
+            // 1. Assign class teacher sections
+            if (classTeacherSections && classTeacherSections.length > 0) {
+                for (const item of classTeacherSections) {
+                    await tx
+                        .update(sectionsTable)
+                        .set({ classTeacherId: newStaff.id })
+                        .where(eq(sectionsTable.id, item.sectionId));
+                }
+            }
+
+            // 2. Assign subject allocations
+            if (subjectTeacherAllocations && subjectTeacherAllocations.length > 0) {
+                const [activeYear] = await tx
+                    .select({ id: academicYearsTable.id })
+                    .from(academicYearsTable)
+                    .where(
+                        and(
+                            eq(academicYearsTable.instituteId, targetInstituteId),
+                            eq(academicYearsTable.isActive, true)
+                        )
+                    )
+                    .limit(1);
+
+                const academicYearId = activeYear?.id;
+                if (!academicYearId) {
+                    throw new Error("No active academic year found for this institute");
+                }
+
+                for (const alloc of subjectTeacherAllocations) {
+                    await tx
+                        .insert(subjectAllocationsTable)
+                        .values({
+                            academicYearId,
+                            instituteId: targetInstituteId,
+                            classId: alloc.classId,
+                            sectionId: alloc.sectionId,
+                            classSubjectId: alloc.subjectId,
+                            teacherId: newStaff.id
+                        });
+                }
+            }
 
             return {
                 userId: newUser.id,
@@ -289,8 +406,9 @@ export const updateTeacher = async (req: Request, res: Response) => {
             bankDetails,
             qualification,
             majorSubjects,
-            isClassTeacher,
-            isActive
+            isActive,
+            classTeacherSections,
+            subjectTeacherAllocations
         } = req.body;
 
         // Perform updates in transaction
@@ -347,7 +465,7 @@ export const updateTeacher = async (req: Request, res: Response) => {
                 const teacherProfilePayload: any = {
                     qualification,
                     majorSubjects,
-                    isClassTeacher: isClassTeacher !== undefined ? !!isClassTeacher : undefined
+                    isClassTeacher: classTeacherSections !== undefined ? (classTeacherSections.length > 0) : undefined
                 };
 
                 Object.keys(teacherProfilePayload).forEach(key => teacherProfilePayload[key] === undefined && delete teacherProfilePayload[key]);
@@ -356,6 +474,64 @@ export const updateTeacher = async (req: Request, res: Response) => {
                     .update(teacherProfileTable)
                     .set(teacherProfilePayload)
                     .where(eq(teacherProfileTable.staffId, staff.id));
+
+                // 1. Sync Class Teacher Sections
+                if (classTeacherSections !== undefined) {
+                    // First, clear this teacher from all sections they were class teacher of
+                    await tx
+                        .update(sectionsTable)
+                        .set({ classTeacherId: null })
+                        .where(eq(sectionsTable.classTeacherId, staff.id));
+
+                    // Then, assign new ones
+                    for (const item of classTeacherSections) {
+                        await tx
+                            .update(sectionsTable)
+                            .set({ classTeacherId: staff.id })
+                            .where(eq(sectionsTable.id, item.sectionId));
+                    }
+                }
+
+                // 2. Sync Subject Teacher Allocations
+                if (subjectTeacherAllocations !== undefined) {
+                    // First, delete existing subject allocations
+                    await tx
+                        .delete(subjectAllocationsTable)
+                        .where(eq(subjectAllocationsTable.teacherId, staff.id));
+
+                    // Then insert new ones
+                    if (subjectTeacherAllocations.length > 0) {
+                        // Fetch active academic year
+                        const [activeYear] = await tx
+                            .select({ id: academicYearsTable.id })
+                            .from(academicYearsTable)
+                            .where(
+                                and(
+                                    eq(academicYearsTable.instituteId, existingUser.instituteId),
+                                    eq(academicYearsTable.isActive, true)
+                                )
+                            )
+                            .limit(1);
+
+                        const academicYearId = activeYear?.id;
+                        if (!academicYearId) {
+                            throw new Error("No active academic year found for this institute");
+                        }
+
+                        for (const alloc of subjectTeacherAllocations) {
+                            await tx
+                                .insert(subjectAllocationsTable)
+                                .values({
+                                    academicYearId,
+                                    instituteId: existingUser.instituteId,
+                                    classId: alloc.classId,
+                                    sectionId: alloc.sectionId,
+                                    classSubjectId: alloc.subjectId,
+                                    teacherId: staff.id
+                                });
+                        }
+                    }
+                }
             }
         });
 
