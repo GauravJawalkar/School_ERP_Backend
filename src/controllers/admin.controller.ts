@@ -91,8 +91,9 @@ const createStaff = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, email, phone, gender, password, isActive, roleName, employeeCode, designation, joiningDate, salaryBasic, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankBranchName, bankAccType, upiId } = req.body;
 
-        const { instituteId } = await getLoggedInUserDetails(req);
-        console.log("🚀 ~ createStaff ~ instituteId:", instituteId)
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const targetInstituteId = isSuperAdmin && req.body.reqInstId ? Number(req.body.reqInstId) : loggedInInstId;
+        console.log("🚀 ~ createStaff ~ targetInstituteId:", targetInstituteId)
 
         if ([firstName, lastName, email, phone, gender, password, roleName, employeeCode, designation, joiningDate, bankName, bankAccHolderName, bankAccNo, bankIFSC, bankAccType,].some((field) => !field || field?.trim() === "")
         ) {
@@ -158,7 +159,7 @@ const createStaff = async (req: Request, res: Response) => {
             .values({
                 firstName,
                 lastName,
-                instituteId,
+                instituteId: targetInstituteId,
                 email,
                 phone,
                 gender,
@@ -192,7 +193,7 @@ const createStaff = async (req: Request, res: Response) => {
             .insert(staffTable)
             .values({
                 userId: newUser.id,
-                instituteId,
+                instituteId: targetInstituteId,
                 employeeCode,
                 firstName,
                 lastName,
@@ -216,7 +217,7 @@ const createStaff = async (req: Request, res: Response) => {
             try {
                 await db.insert(teacherProfileTable).values({
                     staffId: newStaff.id,
-                    instituteId: instituteId
+                    instituteId: targetInstituteId
                 })
             } catch (error) {
                 console.error("Error creating teacher profile: ", error);
@@ -237,7 +238,7 @@ const createStaff = async (req: Request, res: Response) => {
                 user: newUser.id,
                 staff: newStaff.id,
                 role: targetRole.name,
-                schoolId: instituteId,
+                schoolId: targetInstituteId,
             },
         });
 
@@ -254,9 +255,10 @@ const createStaff = async (req: Request, res: Response) => {
 
 const getStaffByInstitute = async (req: Request, res: Response) => {
     try {
-        const { instituteId } = await getLoggedInUserDetails(req);
+        const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
+        const targetInstituteId = isSuperAdmin && req.query.instituteId ? Number(req.query.instituteId) : loggedInInstId;
 
-        if (!instituteId) {
+        if (!targetInstituteId) {
             return res.status(400).json({
                 message: "Institute ID is required and must be a valid number",
                 status: 400,
@@ -264,9 +266,28 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
         }
 
         const staffMembers = await db
-            .select()
+            .select({
+                id: staffTable.id,
+                userId: staffTable.userId,
+                employeeCode: staffTable.employeeCode,
+                firstName: staffTable.firstName,
+                lastName: staffTable.lastName,
+                designation: staffTable.designation,
+                department: staffTable.department,
+                joiningDate: staffTable.joiningDate,
+                salaryBasic: staffTable.salaryBasic,
+                bankDetails: staffTable.bankDetails,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                gender: usersTable.gender,
+                isActive: usersTable.isActive,
+                roleName: rolesTable.name
+            })
             .from(staffTable)
-            .where(eq(staffTable.instituteId, instituteId));
+            .innerJoin(usersTable, eq(staffTable.userId, usersTable.id))
+            .leftJoin(userRoleTable, eq(usersTable.id, userRoleTable.userId))
+            .leftJoin(rolesTable, eq(userRoleTable.roleId, rolesTable.id))
+            .where(eq(staffTable.instituteId, targetInstituteId));
 
         return res.status(200).json({
             message: "Staff members fetched successfully",
@@ -274,12 +295,205 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
             data: staffMembers,
         });
 
-
     } catch (error) {
         console.error("Error fetching staff by school: ", error);
         return res.status(500).json({
             message: "Internal Server Error fetching staff by school",
             status: 500,
+        });
+    }
+}
+
+const updateStaff = async (req: Request, res: Response) => {
+    try {
+        const staffId = Number(req.params.id);
+        const { instituteId, isSuperAdmin } = await getLoggedInUserDetails(req);
+
+        const {
+            firstName,
+            lastName,
+            email,
+            phone,
+            gender,
+            isActive,
+            roleName,
+            employeeCode,
+            designation,
+            joiningDate,
+            salaryBasic,
+            bankName,
+            bankAccHolderName,
+            bankAccNo,
+            bankIFSC,
+            bankBranchName,
+            bankAccType,
+            upiId
+        } = req.body;
+
+        if (!staffId) {
+            return res.status(400).json({ message: "Staff ID is required", status: 400 });
+        }
+
+        const [staff] = await db
+            .select()
+            .from(staffTable)
+            .where(eq(staffTable.id, staffId))
+            .limit(1);
+
+        if (!staff) {
+            return res.status(404).json({ message: "Staff member not found", status: 404 });
+        }
+
+        if (!isSuperAdmin && staff.instituteId !== instituteId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's staff.", status: 403 });
+        }
+
+        // Validate basic fields
+        if ([firstName, lastName, email, phone, gender, roleName, employeeCode, designation, joiningDate].some((field) => field === undefined || (typeof field === "string" && field.trim() === ""))) {
+            return res.status(400).json({ message: "Please provide all required fields", status: 400 });
+        }
+
+        // Check if email is in use by another user
+        const [existingEmail] = await db
+            .select()
+            .from(usersTable)
+            .where(and(eq(usersTable.email, email), sql`${usersTable.id} != ${staff.userId}`))
+            .limit(1);
+
+        if (existingEmail) {
+            return res.status(400).json({ message: "Email is already in use by another user", status: 400 });
+        }
+
+        const [targetRole] = await db
+            .select()
+            .from(rolesTable)
+            .where(eq(rolesTable.name, roleName))
+            .limit(1);
+
+        if (!targetRole) {
+            return res.status(404).json({ message: `Role '${roleName}' not found in the database`, status: 404 });
+        }
+
+        const bankDetails: BankDetails = {
+            bankName,
+            bankAccHolderName,
+            bankAccNo,
+            bankIFSC,
+            bankBranchName,
+            bankAccType,
+            upiId,
+        };
+
+        await db.transaction(async (tx) => {
+            // Update usersTable
+            await tx
+                .update(usersTable)
+                .set({
+                    firstName,
+                    lastName,
+                    email,
+                    phone,
+                    gender,
+                    isActive: isActive ?? true
+                })
+                .where(eq(usersTable.id, staff.userId));
+
+            // Update userRoleTable
+            await tx
+                .update(userRoleTable)
+                .set({ roleId: targetRole.id })
+                .where(eq(userRoleTable.userId, staff.userId));
+
+            // Update staffTable
+            await tx
+                .update(staffTable)
+                .set({
+                    firstName,
+                    lastName,
+                    employeeCode,
+                    designation,
+                    joiningDate,
+                    salaryBasic: String(salaryBasic),
+                    bankDetails
+                })
+                .where(eq(staffTable.id, staffId));
+
+            // If role is updated to TEACHER, ensure teacher profile exists
+            if (roleName === "TEACHER") {
+                const [existingProfile] = await tx
+                    .select()
+                    .from(teacherProfileTable)
+                    .where(eq(teacherProfileTable.staffId, staffId))
+                    .limit(1);
+
+                if (!existingProfile) {
+                    await tx.insert(teacherProfileTable).values({
+                        staffId,
+                        instituteId
+                    });
+                }
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Staff member updated successfully",
+            status: 200
+        });
+
+    } catch (error: any) {
+        console.error("Error updating staff: ", error);
+        return res.status(500).json({
+            message: error?.message || "Internal Server Error updating staff",
+            status: 500
+        });
+    }
+}
+
+const deleteStaff = async (req: Request, res: Response) => {
+    try {
+        const staffId = Number(req.params.id);
+        const { instituteId, isSuperAdmin } = await getLoggedInUserDetails(req);
+
+        if (!staffId) {
+            return res.status(400).json({ message: "Staff ID is required", status: 400 });
+        }
+
+        const [staff] = await db
+            .select()
+            .from(staffTable)
+            .where(eq(staffTable.id, staffId))
+            .limit(1);
+
+        if (!staff) {
+            return res.status(404).json({ message: "Staff member not found", status: 404 });
+        }
+
+        if (!isSuperAdmin && staff.instituteId !== instituteId) {
+            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's staff.", status: 403 });
+        }
+
+        // Delete user (cascades to staffTable, userRoleTable, teacherProfileTable, etc.)
+        const [deletedUser] = await db
+            .delete(usersTable)
+            .where(eq(usersTable.id, staff.userId))
+            .returning();
+
+        if (!deletedUser) {
+            return res.status(400).json({ message: "Failed to delete staff member", status: 400 });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Staff member deleted successfully",
+            status: 200
+        });
+
+    } catch (error: any) {
+        console.error("Error deleting staff: ", error);
+        return res.status(500).json({
+            message: error?.message || "Internal Server Error deleting staff",
+            status: 500
         });
     }
 }
@@ -728,7 +942,7 @@ const updateAcademicYearStatus = async (req: Request, res: Response) => {
     }
 };
 
-export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getUnifiedSchoolDirectory, updateAcademicYearStatus };
+export { createAcademicYear, createStaff, getStaffByInstitute, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getUnifiedSchoolDirectory, updateAcademicYearStatus, updateStaff, deleteStaff };
 
 
 // TODOS : Automate the creation of next academic year based on current year end date. (Future Feature)

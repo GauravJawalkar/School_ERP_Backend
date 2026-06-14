@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute, getUnifiedSchoolDirectory, updateAcademicYearStatus } from "../controllers/admin.controller";
+import { createAcademicYear, createStaff, getAcademicYears, getAllSchoolAdmins, getSchoolAdmins, getStaffByInstitute, getUnifiedSchoolDirectory, updateAcademicYearStatus, updateStaff, deleteStaff } from "../controllers/admin.controller";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
@@ -50,7 +50,22 @@ router
         checkUserRoles([superAdmin, schoolAdmin, accountant]),
         checkUserPersmission(['staff.view']),
         getStaffByInstitute
+    );
+
+router
+    .route('/staff/:id')
+    .put(
+        authenticateUser,
+        checkUserRoles([superAdmin, schoolAdmin]),
+        checkUserPersmission(['staff.update']),
+        updateStaff
     )
+    .delete(
+        authenticateUser,
+        checkUserRoles([superAdmin, schoolAdmin]),
+        checkUserPersmission(['staff.delete']),
+        deleteStaff
+    );
 
 router
     .route('/academicYears')
