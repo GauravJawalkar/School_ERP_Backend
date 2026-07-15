@@ -14,7 +14,8 @@
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.15.6",
-    "drizzle-kit": "^0.31.7"
+    "drizzle-kit": "^0.31.7",
+    "@types/node-cron": "^3.0.11"
   },
   "scripts": {
     "dev": "bun --watch --env-file=.env src/app.ts",
@@ -39,6 +40,7 @@
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-cron": "^4.6.0",
     "nodemailer": "^7.0.11",
     "pg": "^8.16.3",
     "postgres": "^3.4.7"

@@ -3,6 +3,7 @@ import { approveAddmission, createAddmission, deleteAddmission, getAddmission, g
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserRoles } from "../middlewares/checkRoles.middleware";
+import { checkSubscriptionLimits } from "../middlewares/checkSubscriptionLimits.middleware";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router
     .route('/createAddmission')
     .post(
         authenticateUser,
+        checkSubscriptionLimits({ limitType: 'student', module: 'admission' }),
         checkUserPersmission(["admission.create"]),
         createAddmission);
 
@@ -17,6 +19,7 @@ router
     .route('/approveAdmission/:id')
     .post(
         authenticateUser,
+        checkSubscriptionLimits({ limitType: 'student', module: 'admission' }),
         checkUserPersmission(['admission.update']),
         approveAddmission);
 

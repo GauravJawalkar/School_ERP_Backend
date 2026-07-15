@@ -15,6 +15,13 @@
       "when": 1777058571036,
       "tag": "0001_safe_natasha_romanoff",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784137996638,
+      "tag": "0002_overrated_blindfold",
+      "breakpoints": true
     }
   ]
 }

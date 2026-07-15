@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { db } from "../db";
-import { academicYearsTable, classesTable, classSubjectsTable, feeStructuresTable, feeHeadsTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable } from "../models";
+import { academicYearsTable, classesTable, classSubjectsTable, feeStructuresTable, feeHeadsTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable, subscriptionPlansTable, subscriptionPricesTable, instituteSubscriptionsTable } from "../models";
 import { and, countDistinct, eq, ne, sql } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
@@ -69,22 +69,107 @@ const createSchool = async (req: Request, res: Response) => {
             return res.status(500).json({ status: 500, message: "Failed to upload logo image" });
         }
 
-        const [newInstitute] = await db.insert(instituteProfileTable).values({
-            schoolName,
-            affiliationNumber,
-            slug,
-            status,
-            address,
-            logoUrl: logoImage?.secure_url,
-            medium,
-            contactInfo: contactInformation,
-            additionalInfo: additionalInformation,
-        }).returning();
+        // 1. Validate plan and price BEFORE starting the transaction
+        const { planId, billingPeriod } = req.body;
+        let selectedPlanId = planId ? Number(planId) : null;
+        let selectedPriceId = null;
+        let selectedPeriod = billingPeriod || "MONTHLY";
+        let subStatus = "ACTIVE";
+        let endDate = new Date();
+        let trialEndDate = null;
 
-        // Check if institute creation was successful
-        if (!newInstitute) {
-            return res.status(404).json({ status: 404, message: "Failed to register the institute" });
+        if (planId) {
+            // Validate that the plan exists
+            const [plan] = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, selectedPlanId!)).limit(1);
+            if (!plan) {
+                return res.status(400).json({ status: 400, message: "Invalid planId: Selected plan does not exist" });
+            }
+
+            // Find matching price record
+            const [price] = await db.select().from(subscriptionPricesTable).where(
+                and(
+                    eq(subscriptionPricesTable.planId, selectedPlanId!),
+                    eq(subscriptionPricesTable.billingPeriod, selectedPeriod)
+                )
+            ).limit(1);
+            
+            if (!price) {
+                return res.status(400).json({ 
+                    status: 400, 
+                    message: `No price record matches planId: ${planId} and billingPeriod: ${selectedPeriod}` 
+                });
+            }
+
+            selectedPriceId = price.id;
+
+            if (selectedPeriod === "MONTHLY") {
+                endDate.setDate(endDate.getDate() + 30);
+            } else if (selectedPeriod === "HALF_YEARLY") {
+                endDate.setDate(endDate.getDate() + 180);
+            } else if (selectedPeriod === "ANNUALLY") {
+                endDate.setDate(endDate.getDate() + 365);
+            }
+        } else {
+            // Default to lowest tier basic plan with 14-day trial
+            const [basicPlan] = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.slug, 'basic')).limit(1);
+            if (basicPlan) {
+                selectedPlanId = basicPlan.id;
+            } else {
+                const [anyPlan] = await db.select().from(subscriptionPlansTable).limit(1);
+                if (anyPlan) {
+                    selectedPlanId = anyPlan.id;
+                }
+            }
+
+            if (!selectedPlanId) {
+                return res.status(400).json({ status: 400, message: "No subscription plans exist to assign a trial. Cannot complete onboarding." });
+            }
+
+            const [firstPrice] = await db.select().from(subscriptionPricesTable).where(eq(subscriptionPricesTable.planId, selectedPlanId)).limit(1);
+            if (!firstPrice) {
+                return res.status(400).json({ status: 400, message: "No price records exist for the trial plan. Cannot complete onboarding." });
+            }
+            selectedPriceId = firstPrice.id;
+
+            subStatus = "TRIALING";
+            trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 14);
+            endDate = trialEndDate;
         }
+
+        // 2. Perform both inserts inside a single database transaction
+        let newInstitute;
+        await db.transaction(async (tx) => {
+            const [insertedInst] = await tx.insert(instituteProfileTable).values({
+                schoolName,
+                affiliationNumber,
+                slug,
+                status,
+                address,
+                logoUrl: logoImage?.secure_url,
+                medium,
+                contactInfo: contactInformation,
+                additionalInfo: additionalInformation,
+            }).returning();
+
+            if (!insertedInst) {
+                throw new Error("Failed to register the institute");
+            }
+
+            newInstitute = insertedInst;
+
+            // Insert subscription mapping
+            await tx.insert(instituteSubscriptionsTable).values({
+                instituteId: newInstitute.id,
+                planId: selectedPlanId!,
+                priceId: selectedPriceId!,
+                status: subStatus as any,
+                startDate: new Date(),
+                endDate: endDate,
+                trialEndDate: trialEndDate,
+                cancelAtPeriodEnd: false
+            });
+        });
 
         return res.status(201).json({ message: "Institute created Successfully", data: newInstitute });
 

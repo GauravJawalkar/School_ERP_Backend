@@ -1,12 +1,16 @@
 import express from "express"
 import cookieParser from "cookie-parser";
 import cors from 'cors'
+import { startSubscriptionExpiryJob } from "./jobs/subscriptionExpiry.job";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 const allowedOrigins = ['http://localhost:3000'];
 
-app.listen(PORT, () => { console.log(`🚀 Server running on http://localhost:${PORT}`) })
+app.listen(PORT, () => { 
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    startSubscriptionExpiryJob();
+})
 
 // Middlewares
 app.use(express.json());
@@ -27,6 +31,7 @@ import studentRouter from './routes/student.routes'
 import permissionRouter from './routes/permission.routes'
 import rolesRouter from './routes/roles.routes'
 import teacherRouter from './routes/teacher.routes'
+import saasRouter from './routes/saas.routes'
 
 // Routes
 app.use('/api/v1/auth', userRouter);
@@ -38,3 +43,4 @@ app.use('/api/v1/student', studentRouter);
 app.use('/api/v1/permission', permissionRouter)
 app.use('/api/v1/roles', rolesRouter)
 app.use('/api/v1/teacher', teacherRouter)
+app.use('/api/v1/saas', saasRouter)

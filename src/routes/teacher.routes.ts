@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateUser } from "../middlewares/authenticate.middleware";
 import { checkUserPersmission } from "../middlewares/checkPermission.middleware";
+import { checkSubscriptionLimits } from "../middlewares/checkSubscriptionLimits.middleware";
 import {
     getTeachers,
     createTeacher,
@@ -19,6 +20,7 @@ router
     )
     .post(
         authenticateUser,
+        checkSubscriptionLimits({ limitType: 'staff', module: 'teacher' }),
         checkUserPersmission(["teacher.create"]),
         createTeacher
     );

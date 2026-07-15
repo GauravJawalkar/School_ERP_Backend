@@ -22,7 +22,7 @@ const checkUserRoles = (requiredRoles: string[] = []) => {
 
             const userRoles = (req.user as JwtPayload & { permissions?: string[] }).roles || [];
 
-            const hasRoles = requiredRoles.length > 0 || requiredRoles.some(role => userRoles.includes(role));
+            const hasRoles = requiredRoles.length === 0 || requiredRoles.some(role => userRoles.includes(role));
 
             if (!hasRoles) {
                 return res.status(403).json({

@@ -1,0 +1,30 @@
+export const SUBSCRIPTION_MODULES = [
+    "student",
+    "attendance",
+    "marks",
+    "fees",
+    "library",
+    "transport",
+    "admission",
+    "visitor",
+    "teacher",
+    "staff",
+    "class",
+    "subject",
+    "timetable",
+    "academic_year",
+    "exam",
+    "notice",
+    "message",
+    "homework",
+    "certificate",
+    "report_card",
+    "role",
+    "user",
+    "institute",
+    "report",
+    "dashboard",
+    "saas"
+] as const;
+
+export type SubscriptionModule = typeof SUBSCRIPTION_MODULES[number];
