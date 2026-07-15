@@ -11,7 +11,8 @@ import {
     assignSubscription,
     getInstituteSubscriptionStatus,
     getAllSubscriptions,
-    getPlans
+    getPlans,
+    deletePlan
 } from "../controllers/saas.controller";
 import { getLoggedInUserDetails } from "../services/auth.service";
 import type { Request, Response, NextFunction } from "express";
@@ -64,6 +65,13 @@ router.put(
     checkUserRoles([superAdmin]),
     checkUserPersmission(["saas.subscription.manage"]),
     updatePlan
+);
+
+router.delete(
+    "/plans/:id",
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.subscription.manage"]),
+    deletePlan
 );
 
 router.post(

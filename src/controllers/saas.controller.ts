@@ -530,4 +530,58 @@ export const updatePrice = async (req: Request, res: Response) => {
     }
 };
 
+// 9. Delete a Plan
+export const deletePlan = async (req: Request, res: Response) => {
+    try {
+        const planId = Number(req.params.id);
+
+        if (isNaN(planId)) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: "Invalid plan ID"
+            });
+        }
+
+        // Delete the plan
+        const [deleted] = await db
+            .delete(subscriptionPlansTable)
+            .where(eq(subscriptionPlansTable.id, planId))
+            .returning();
+
+        if (!deleted) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Plan not found"
+            });
+        }
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Plan deleted successfully",
+            data: deleted
+        });
+    } catch (error: any) {
+        console.error("Error deleting plan:", error);
+        
+        // Handle foreign key constraint violation (e.g. 23503 in PG)
+        if (error.code === "23503") {
+            return res.status(409).json({
+                status: 409,
+                success: false,
+                message: "Cannot delete this plan because active school subscriptions are currently using it. Try marking it as Inactive instead."
+            });
+        }
+
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 
