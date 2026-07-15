@@ -7,7 +7,7 @@ import {
     subscriptionPaymentsTable,
     instituteProfileTable
 } from "../models";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { SUBSCRIPTION_MODULES } from "../constants/subscriptionModules.constants";
 import crypto from "crypto";
 
@@ -402,20 +402,34 @@ export const getAllSubscriptions = async (req: Request, res: Response) => {
     try {
         const subs = await db
             .select({
-                subscription: instituteSubscriptionsTable,
-                plan: subscriptionPlansTable,
-                schoolName: instituteProfileTable.schoolName
+                contractId: instituteSubscriptionsTable.id,
+                instituteId: instituteSubscriptionsTable.instituteId,
+                schoolName: instituteProfileTable.schoolName,
+                schoolSlug: instituteProfileTable.slug,
+                tierName: subscriptionPlansTable.name,
+                billingCycle: subscriptionPricesTable.billingPeriod,
+                price: subscriptionPricesTable.amount,
+                billingStatus: instituteSubscriptionsTable.status,
+                startDate: instituteSubscriptionsTable.startDate,
+                renewalDate: instituteSubscriptionsTable.endDate,
             })
             .from(instituteSubscriptionsTable)
             .innerJoin(subscriptionPlansTable, eq(instituteSubscriptionsTable.planId, subscriptionPlansTable.id))
             .innerJoin(instituteProfileTable, eq(instituteSubscriptionsTable.instituteId, instituteProfileTable.id))
+            .innerJoin(subscriptionPricesTable, eq(instituteSubscriptionsTable.priceId, subscriptionPricesTable.id))
             .orderBy(desc(instituteSubscriptionsTable.createdAt));
+
+        const formattedSubs = subs.map(sub => ({
+            ...sub,
+            contractId: sub.contractId.toString(),
+            price: parseFloat(sub.price)
+        }));
 
         return res.status(200).json({
             status: 200,
             success: true,
             message: "Fetched all subscriptions",
-            data: subs
+            data: formattedSubs
         });
     } catch (error: any) {
         console.error("Error fetching all subscriptions:", error);
@@ -433,12 +447,14 @@ export const getPlans = async (req: Request, res: Response) => {
     try {
         const plans = await db
             .select()
-            .from(subscriptionPlansTable);
+            .from(subscriptionPlansTable)
+            .orderBy(asc(subscriptionPlansTable.id));
 
         const prices = await db
             .select()
             .from(subscriptionPricesTable)
-            .where(eq(subscriptionPricesTable.isActive, true));
+            .where(eq(subscriptionPricesTable.isActive, true))
+            .orderBy(asc(subscriptionPricesTable.id));
 
         const plansWithPrices = plans.map(plan => {
             const planPrices = prices.filter(p => p.planId === plan.id);
@@ -464,4 +480,54 @@ export const getPlans = async (req: Request, res: Response) => {
         });
     }
 };
+
+// 8. Update Plan Price
+export const updatePrice = async (req: Request, res: Response) => {
+    try {
+        const priceId = Number(req.params.id);
+        const { amount, isActive } = req.body;
+
+        if (isNaN(priceId)) {
+            return res.status(400).json({
+                status: 400,
+                success: false,
+                message: "Invalid price ID"
+            });
+        }
+
+        const [updatedPrice] = await db
+            .update(subscriptionPricesTable)
+            .set({
+                amount: amount !== undefined ? amount.toString() : undefined,
+                isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+                updatedAt: new Date()
+            })
+            .where(eq(subscriptionPricesTable.id, priceId))
+            .returning();
+
+        if (!updatedPrice) {
+            return res.status(404).json({
+                status: 404,
+                success: false,
+                message: "Price record not found"
+            });
+        }
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Price updated successfully",
+            data: updatedPrice
+        });
+    } catch (error: any) {
+        console.error("Error updating price:", error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 

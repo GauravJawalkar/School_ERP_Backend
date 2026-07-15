@@ -7,6 +7,7 @@ import {
     createPlan,
     updatePlan,
     createPrice,
+    updatePrice,
     assignSubscription,
     getInstituteSubscriptionStatus,
     getAllSubscriptions,
@@ -70,6 +71,13 @@ router.post(
     checkUserRoles([superAdmin]),
     checkUserPersmission(["saas.subscription.manage"]),
     createPrice
+);
+
+router.put(
+    "/prices/:id",
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.subscription.manage"]),
+    updatePrice
 );
 
 router.post(
