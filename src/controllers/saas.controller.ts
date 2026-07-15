@@ -427,3 +427,41 @@ export const getAllSubscriptions = async (req: Request, res: Response) => {
         });
     }
 };
+
+// 7. Get All Plans with their Prices
+export const getPlans = async (req: Request, res: Response) => {
+    try {
+        const plans = await db
+            .select()
+            .from(subscriptionPlansTable);
+
+        const prices = await db
+            .select()
+            .from(subscriptionPricesTable)
+            .where(eq(subscriptionPricesTable.isActive, true));
+
+        const plansWithPrices = plans.map(plan => {
+            const planPrices = prices.filter(p => p.planId === plan.id);
+            return {
+                ...plan,
+                prices: planPrices
+            };
+        });
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: "Fetched subscription plans successfully",
+            data: plansWithPrices
+        });
+    } catch (error: any) {
+        console.error("Error fetching plans:", error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+

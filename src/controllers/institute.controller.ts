@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { db } from "../db";
 import { academicYearsTable, classesTable, classSubjectsTable, feeStructuresTable, feeHeadsTable, instituteProfileTable, rolesTable, sectionsTable, staffTable, studentsTable, subjectAllocationsTable, subjectsTable, teacherProfileTable, userRoleTable, usersTable, subscriptionPlansTable, subscriptionPricesTable, instituteSubscriptionsTable } from "../models";
-import { and, countDistinct, eq, ne, sql } from "drizzle-orm";
+import { and, countDistinct, eq, ne, or, sql } from "drizzle-orm";
 import { uploadImageToCloudinary } from "../helpers/uploadToCloudinary";
 import bcrypt from "bcrypt";
 import type { TokenUser } from "../interface";
@@ -49,8 +49,17 @@ const createSchool = async (req: Request, res: Response) => {
             boardsAffiliated,
         }
 
-        // Logic to create institute profile goes here
-        const [existingInstitute] = await db.select().from(instituteProfileTable).where(eq(instituteProfileTable.schoolName, schoolName));
+        const [existingInstitute] = await db
+            .select()
+            .from(instituteProfileTable)
+            .where(
+                or(
+                    eq(instituteProfileTable.schoolName, schoolName),
+                    eq(instituteProfileTable.affiliationNumber, affiliationNumber),
+                    eq(sql`${instituteProfileTable.contactInfo}->'emails'->>'primary'`, primaryEmail)
+                )
+            )
+            .limit(1);
 
         if (existingInstitute) {
             return res.status(409).json({ status: 409, message: "This school already exists!" });
@@ -92,11 +101,11 @@ const createSchool = async (req: Request, res: Response) => {
                     eq(subscriptionPricesTable.billingPeriod, selectedPeriod)
                 )
             ).limit(1);
-            
+
             if (!price) {
-                return res.status(400).json({ 
-                    status: 400, 
-                    message: `No price record matches planId: ${planId} and billingPeriod: ${selectedPeriod}` 
+                return res.status(400).json({
+                    status: 400,
+                    message: `No price record matches planId: ${planId} and billingPeriod: ${selectedPeriod}`
                 });
             }
 

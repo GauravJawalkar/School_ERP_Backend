@@ -9,7 +9,8 @@ import {
     createPrice,
     assignSubscription,
     getInstituteSubscriptionStatus,
-    getAllSubscriptions
+    getAllSubscriptions,
+    getPlans
 } from "../controllers/saas.controller";
 import { getLoggedInUserDetails } from "../services/auth.service";
 import type { Request, Response, NextFunction } from "express";
@@ -42,6 +43,13 @@ const checkInstituteStatusAccess = async (req: Request, res: Response, next: Nex
 
 // --- SUPER ADMIN ONLY ENDPOINTS ---
 router.use(authenticateUser);
+
+router.get(
+    "/plans",
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.subscription.manage"]),
+    getPlans
+);
 
 router.post(
     "/plans",
