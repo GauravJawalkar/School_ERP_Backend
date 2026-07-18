@@ -12,7 +12,11 @@ import {
     getInstituteSubscriptionStatus,
     getAllSubscriptions,
     getPlans,
-    deletePlan
+    deletePlan,
+    getAllTransactions,
+    reconcileTransaction,
+    resendAlert,
+    issueInvoice
 } from "../controllers/saas.controller";
 import { getLoggedInUserDetails } from "../services/auth.service";
 import type { Request, Response, NextFunction } from "express";
@@ -101,6 +105,40 @@ router.get(
     checkUserPersmission(["saas.billing.view"]),
     getAllSubscriptions
 );
+
+// --- SAAS BILLING LEDGER ENDPOINTS ---
+router.get(
+    "/billing/allTransactions",
+    authenticateUser,
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.billing.view"]),
+    getAllTransactions
+);
+
+router.patch(
+    "/billing/reconcile/:invoiceId",
+    authenticateUser,
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.subscription.manage"]),
+    reconcileTransaction
+);
+
+router.post(
+    "/billing/resendAlert",
+    authenticateUser,
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.subscription.manage"]),
+    resendAlert
+);
+
+router.post(
+    "/billing/issue",
+    authenticateUser,
+    checkUserRoles([superAdmin]),
+    checkUserPersmission(["saas.subscription.manage"]),
+    issueInvoice
+);
+
 
 // --- TENANT LEVEL ENDPOINTS (School Admins / Staff check their own status) ---
 router.get(

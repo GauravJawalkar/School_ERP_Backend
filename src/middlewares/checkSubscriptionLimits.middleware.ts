@@ -6,7 +6,7 @@ import {
     studentsTable,
     staffTable
 } from "../models";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { superAdmin } from "../constants/auth.constants";
 import { SUBSCRIPTION_MODULES } from "../constants/subscriptionModules.constants";
 import type { TokenUser } from "../interface";
@@ -64,7 +64,7 @@ export const checkSubscriptionLimits = (options: { limitType?: 'student' | 'staf
                 .where(
                     and(
                         eq(instituteSubscriptionsTable.instituteId, instituteId),
-                        eq(instituteSubscriptionsTable.status, "ACTIVE")
+                        inArray(instituteSubscriptionsTable.status, ["ACTIVE", "TRIALING", "PAST_DUE"])
                     )
                 )
                 .limit(1);

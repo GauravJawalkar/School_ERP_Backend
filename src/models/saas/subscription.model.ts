@@ -64,8 +64,11 @@ export const subscriptionPaymentsTable = pgTable('subscriptionPaymentsTable', {
     currency: varchar('currency', { length: 10 }).notNull(),
     paymentGateway: varchar('paymentGateway', { length: 50 }).notNull(), // 'RAZORPAY', 'STRIPE', 'MANUAL'
     gatewayTransactionId: varchar('gatewayTransactionId', { length: 100 }).unique().notNull(), // e.g. MANUAL-<uuid>
-    status: varchar('status', { length: 50 }).notNull(),             // 'SUCCESS', 'FAILED', 'PENDING'
+    invoiceNumber: varchar('invoiceNumber', { length: 50 }).unique(), // Dedicated human-readable invoice reference
+    status: varchar('status', { length: 50 }).notNull(),             // 'SUCCESS', 'FAILED', 'PENDING', 'OVERDUE'
     invoiceUrl: varchar('invoiceUrl', { length: 255 }),
     paidAt: timestamp('paidAt'),
+    dueDate: timestamp('dueDate'),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
+

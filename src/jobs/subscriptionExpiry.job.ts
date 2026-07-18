@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { db } from "../db";
-import { instituteSubscriptionsTable } from "../models";
-import { and, lt, eq } from "drizzle-orm";
+import { instituteSubscriptionsTable, subscriptionPaymentsTable } from "../models";
+import { and, lt, eq, inArray } from "drizzle-orm";
 
 const checkExpiries = async () => {
     const now = new Date();
@@ -61,6 +61,77 @@ const checkExpiries = async () => {
         if (expiredTrialsResult.length > 0) {
             console.log(`[Expiry Job] Expired ${expiredTrialsResult.length} trial subscription(s).`);
         }
+
+        // 4. Process pending payments that are overdue (marking payment OVERDUE, subscription PAST_DUE)
+        const overduePayments = await db.update(subscriptionPaymentsTable)
+            .set({ status: "OVERDUE" })
+            .where(
+                and(
+                    eq(subscriptionPaymentsTable.status, "PENDING"),
+                    lt(subscriptionPaymentsTable.dueDate, now)
+                )
+            )
+            .returning({
+                id: subscriptionPaymentsTable.id,
+                instituteSubscriptionId: subscriptionPaymentsTable.instituteSubscriptionId
+            });
+
+        if (overduePayments.length > 0) {
+            console.log(`[Expiry Job] Marked ${overduePayments.length} payment(s) as OVERDUE.`);
+
+            const subIdsToUpdate = Array.from(new Set(overduePayments.map(p => p.instituteSubscriptionId)));
+
+            if (subIdsToUpdate.length > 0) {
+                const updatedSubs = await db.update(instituteSubscriptionsTable)
+                    .set({
+                        status: "PAST_DUE",
+                        updatedAt: new Date()
+                    })
+                    .where(
+                        and(
+                            eq(instituteSubscriptionsTable.status, "ACTIVE"),
+                            inArray(instituteSubscriptionsTable.id, subIdsToUpdate)
+                        )
+                    )
+                    .returning({ id: instituteSubscriptionsTable.id });
+                console.log(`[Expiry Job] Transitioned ${updatedSubs.length} active subscription(s) to PAST_DUE.`);
+            }
+        }
+
+        // 5. Process PAST_DUE subscriptions whose overdue payment is past the 7-day grace window (escalating to UNPAID)
+        const gracePeriodLimit = new Date();
+        gracePeriodLimit.setDate(gracePeriodLimit.getDate() - 7); // N = 7 days grace period
+
+        const unpaidPayments = await db
+            .select({
+                instituteSubscriptionId: subscriptionPaymentsTable.instituteSubscriptionId
+            })
+            .from(subscriptionPaymentsTable)
+            .where(
+                and(
+                    eq(subscriptionPaymentsTable.status, "OVERDUE"),
+                    lt(subscriptionPaymentsTable.dueDate, gracePeriodLimit)
+                )
+            );
+
+        const subIdsToLockout = Array.from(new Set(unpaidPayments.map(p => p.instituteSubscriptionId)));
+
+        if (subIdsToLockout.length > 0) {
+            const lockedSubs = await db.update(instituteSubscriptionsTable)
+                .set({
+                    status: "UNPAID",
+                    updatedAt: new Date()
+                })
+                .where(
+                    and(
+                        eq(instituteSubscriptionsTable.status, "PAST_DUE"),
+                        inArray(instituteSubscriptionsTable.id, subIdsToLockout)
+                    )
+                )
+                .returning({ id: instituteSubscriptionsTable.id });
+            console.log(`[Expiry Job] Lockout enforced: transitioned ${lockedSubs.length} PAST_DUE subscription(s) to UNPAID.`);
+        }
+
     } catch (error) {
         console.error("❌ Error running subscription expiry check:", error);
     }

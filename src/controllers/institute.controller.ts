@@ -112,11 +112,11 @@ const createSchool = async (req: Request, res: Response) => {
             selectedPriceId = price.id;
 
             if (selectedPeriod === "MONTHLY") {
-                endDate.setDate(endDate.getDate() + 30);
+                endDate.setMonth(endDate.getMonth() + 1);
             } else if (selectedPeriod === "HALF_YEARLY") {
-                endDate.setDate(endDate.getDate() + 180);
+                endDate.setMonth(endDate.getMonth() + 6);
             } else if (selectedPeriod === "ANNUALLY") {
-                endDate.setDate(endDate.getDate() + 365);
+                endDate.setFullYear(endDate.getFullYear() + 1);
             }
         } else {
             // Default to lowest tier basic plan with 14-day trial
@@ -586,6 +586,15 @@ const getAllSchools = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized User", status: 401 })
         }
 
+        const latestSubQuery = db
+            .select({
+                instituteId: instituteSubscriptionsTable.instituteId,
+                latestSubId: sql<number>`max(${instituteSubscriptionsTable.id})`.as('latest_sub_id')
+            })
+            .from(instituteSubscriptionsTable)
+            .groupBy(instituteSubscriptionsTable.instituteId)
+            .as('latest_sub_query');
+
         const getAllSchools = await db
             .select({
                 // Institute fields
@@ -600,11 +609,26 @@ const getAllSchools = async (req: Request, res: Response) => {
                 // Counts
                 totalStudents: countDistinct(studentsTable.id),
                 totalStaff: countDistinct(staffTable.id),
+                // Subscription details
+                planName: subscriptionPlansTable.name,
+                planPrice: subscriptionPricesTable.amount,
+                billingCycle: subscriptionPricesTable.billingPeriod,
+                subscriptionStatus: instituteSubscriptionsTable.status,
+                renewalDate: instituteSubscriptionsTable.endDate,
             })
             .from(instituteProfileTable)
             .leftJoin(studentsTable, eq(studentsTable.instituteId, instituteProfileTable.id))
             .leftJoin(staffTable, eq(staffTable.instituteId, instituteProfileTable.id))
-            .groupBy(instituteProfileTable.id);
+            .leftJoin(latestSubQuery, eq(latestSubQuery.instituteId, instituteProfileTable.id))
+            .leftJoin(instituteSubscriptionsTable, eq(instituteSubscriptionsTable.id, latestSubQuery.latestSubId))
+            .leftJoin(subscriptionPlansTable, eq(instituteSubscriptionsTable.planId, subscriptionPlansTable.id))
+            .leftJoin(subscriptionPricesTable, eq(instituteSubscriptionsTable.priceId, subscriptionPricesTable.id))
+            .groupBy(
+                instituteProfileTable.id,
+                instituteSubscriptionsTable.id,
+                subscriptionPlansTable.id,
+                subscriptionPricesTable.id
+            );
 
         if (getAllSchools?.length === 0) {
             return res.status(200).json({ message: "No Schools Found", data: getAllSchools, status: 200 })
