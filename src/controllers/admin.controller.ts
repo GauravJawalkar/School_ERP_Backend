@@ -289,6 +289,52 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
             .leftJoin(rolesTable, eq(userRoleTable.roleId, rolesTable.id))
             .where(eq(staffTable.instituteId, targetInstituteId));
 
+        const existingUserIds = new Set(staffMembers.map((s) => s.userId));
+
+        // Also fetch any SCHOOL_ADMIN user accounts for this institute not present in staffTable
+        const schoolAdminUsers = await db
+            .select({
+                userId: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                email: usersTable.email,
+                phone: usersTable.phone,
+                gender: usersTable.gender,
+                isActive: usersTable.isActive,
+                roleName: rolesTable.name
+            })
+            .from(usersTable)
+            .innerJoin(userRoleTable, eq(usersTable.id, userRoleTable.userId))
+            .innerJoin(rolesTable, eq(userRoleTable.roleId, rolesTable.id))
+            .where(
+                and(
+                    eq(usersTable.instituteId, targetInstituteId),
+                    eq(rolesTable.name, "SCHOOL_ADMIN")
+                )
+            );
+
+        schoolAdminUsers.forEach((admin) => {
+            if (!existingUserIds.has(admin.userId)) {
+                staffMembers.push({
+                    id: 0,
+                    userId: admin.userId,
+                    employeeCode: `ADM-${admin.userId.substring(0, 8).toUpperCase()}`,
+                    firstName: admin.firstName || "School",
+                    lastName: admin.lastName || "Admin",
+                    designation: "School Administrator",
+                    department: "Administration",
+                    joiningDate: null,
+                    salaryBasic: "0",
+                    bankDetails: null,
+                    email: admin.email,
+                    phone: admin.phone || "N/A",
+                    gender: admin.gender || "OTHER",
+                    isActive: admin.isActive !== false,
+                    roleName: admin.roleName || "SCHOOL_ADMIN"
+                });
+            }
+        });
+
         return res.status(200).json({
             message: "Staff members fetched successfully",
             status: 200,
@@ -306,7 +352,8 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
 
 const updateStaff = async (req: Request, res: Response) => {
     try {
-        const staffId = Number(req.params.id);
+        const paramId = req.params.id;
+        const staffId = Number(paramId);
         const { instituteId, isSuperAdmin } = await getLoggedInUserDetails(req);
 
         const {
@@ -330,26 +377,48 @@ const updateStaff = async (req: Request, res: Response) => {
             upiId
         } = req.body;
 
-        if (!staffId) {
-            return res.status(400).json({ message: "Staff ID is required", status: 400 });
+        if (!paramId) {
+            return res.status(400).json({ message: "Staff ID or User ID is required", status: 400 });
         }
 
-        const [staff] = await db
-            .select()
-            .from(staffTable)
-            .where(eq(staffTable.id, staffId))
-            .limit(1);
+        let targetUserId: string | null = null;
+        let staffRecord: any = null;
 
-        if (!staff) {
-            return res.status(404).json({ message: "Staff member not found", status: 404 });
+        if (!isNaN(staffId) && staffId > 0) {
+            const [staff] = await db
+                .select()
+                .from(staffTable)
+                .where(eq(staffTable.id, staffId))
+                .limit(1);
+
+            if (staff) {
+                staffRecord = staff;
+                targetUserId = staff.userId;
+            }
         }
 
-        if (!isSuperAdmin && staff.instituteId !== instituteId) {
+        if (!targetUserId && paramId) {
+            const [user] = await db
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.id, paramId))
+                .limit(1);
+
+            if (user) {
+                targetUserId = user.id;
+            }
+        }
+
+        if (!targetUserId) {
+            return res.status(404).json({ message: "Staff member or user profile not found", status: 404 });
+        }
+
+        if (!isSuperAdmin && staffRecord && staffRecord.instituteId !== instituteId) {
             return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's staff.", status: 403 });
         }
 
         // Validate basic fields
-        if ([firstName, lastName, email, phone, gender, roleName, employeeCode, designation, joiningDate].some((field) => field === undefined || (typeof field === "string" && field.trim() === ""))) {
+        if ([firstName, lastName, email, phone, gender, roleName].some((field) => field === undefined || (typeof field === "string" && field.trim() === ""))) {
             return res.status(400).json({ message: "Please provide all required fields", status: 400 });
         }
 
@@ -357,7 +426,7 @@ const updateStaff = async (req: Request, res: Response) => {
         const [existingEmail] = await db
             .select()
             .from(usersTable)
-            .where(and(eq(usersTable.email, email), sql`${usersTable.id} != ${staff.userId}`))
+            .where(and(eq(usersTable.email, email), sql`${usersTable.id} != ${targetUserId}`))
             .limit(1);
 
         if (existingEmail) {
@@ -396,7 +465,7 @@ const updateStaff = async (req: Request, res: Response) => {
                     gender,
                     isActive: isActive ?? true
                 })
-                .where(eq(usersTable.id, staff.userId));
+                .where(eq(usersTable.id, targetUserId!));
 
             // Update userRoleTable
             await tx
@@ -452,31 +521,55 @@ const updateStaff = async (req: Request, res: Response) => {
 
 const deleteStaff = async (req: Request, res: Response) => {
     try {
-        const staffId = Number(req.params.id);
+        const paramId = req.params.id;
+        const staffId = Number(paramId);
         const { instituteId, isSuperAdmin } = await getLoggedInUserDetails(req);
 
-        if (!staffId) {
-            return res.status(400).json({ message: "Staff ID is required", status: 400 });
+        if (!paramId) {
+            return res.status(400).json({ message: "Staff ID or User ID is required", status: 400 });
         }
 
-        const [staff] = await db
-            .select()
-            .from(staffTable)
-            .where(eq(staffTable.id, staffId))
-            .limit(1);
+        let targetUserId: string | null = null;
 
-        if (!staff) {
-            return res.status(404).json({ message: "Staff member not found", status: 404 });
+        if (!isNaN(staffId) && staffId > 0) {
+            const [staff] = await db
+                .select()
+                .from(staffTable)
+                .where(eq(staffTable.id, staffId))
+                .limit(1);
+
+            if (staff) {
+                if (!isSuperAdmin && staff.instituteId !== instituteId) {
+                    return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's staff.", status: 403 });
+                }
+                targetUserId = staff.userId;
+            }
         }
 
-        if (!isSuperAdmin && staff.instituteId !== instituteId) {
-            return res.status(403).json({ message: "Access denied. You do not have permission to manage this school's staff.", status: 403 });
+        // Fallback: Check if paramId is a direct userId (e.g. for standalone SCHOOL_ADMIN)
+        if (!targetUserId && paramId) {
+            const [user] = await db
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.id, paramId))
+                .limit(1);
+
+            if (user) {
+                if (!isSuperAdmin && user.instituteId !== instituteId) {
+                    return res.status(403).json({ message: "Access denied.", status: 403 });
+                }
+                targetUserId = user.id;
+            }
+        }
+
+        if (!targetUserId) {
+            return res.status(404).json({ message: "Staff member or user profile not found", status: 404 });
         }
 
         // Delete user (cascades to staffTable, userRoleTable, teacherProfileTable, etc.)
         const [deletedUser] = await db
             .delete(usersTable)
-            .where(eq(usersTable.id, staff.userId))
+            .where(eq(usersTable.id, targetUserId))
             .returning();
 
         if (!deletedUser) {
@@ -761,19 +854,6 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
             });
         });
 
-        // 2. Fetch Parents roster
-        const parentsList = await db
-            .select({
-                id: parentsTable.id,
-                fatherName: parentsTable.fatherName,
-                motherName: parentsTable.motherName,
-                primaryPhone: parentsTable.primaryPhone,
-                fatherEmail: parentsTable.fatherEmail,
-                studentId: parentsTable.studentId,
-            })
-            .from(parentsTable)
-            .where(eq(parentsTable.instituteId, targetInstituteId));
-
         // 3. Build unified list
         const unifiedUsers: any[] = [];
 
@@ -814,7 +894,7 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
                     isActive: u.isActive !== false
                 });
             }
-            // Other System users (e.g. SCHOOL_ADMIN)
+            // Other System users (e.g. SCHOOL_ADMIN, RECEPTIONIST, etc.)
             else {
                 // Ignore SUPER_ADMIN from school local directory
                 if (primaryRole === "SUPER_ADMIN") {
@@ -835,21 +915,35 @@ const getUnifiedSchoolDirectory = async (req: Request, res: Response) => {
             }
         });
 
-        // Map Parents
-        parentsList.forEach((p) => {
-            unifiedUsers.push({
-                id: p.id + 40000,
-                userId: null,
-                firstName: "Parent of",
-                lastName: p.fatherName || p.motherName || "Student",
-                employeeCode: `PAR-${p.id}`,
-                designation: "Parent / Guardian",
-                email: p.fatherEmail || `parent.${p.id}@school.com`,
-                phone: p.primaryPhone || "N/A",
-                roleName: "PARENT",
-                isActive: true
+        // Map Parents from parentsTable ONLY if explicitly requested via includeParents=true
+        if (req.query.includeParents === "true") {
+            const parentsList = await db
+                .select({
+                    id: parentsTable.id,
+                    fatherName: parentsTable.fatherName,
+                    motherName: parentsTable.motherName,
+                    primaryPhone: parentsTable.primaryPhone,
+                    fatherEmail: parentsTable.fatherEmail,
+                    studentId: parentsTable.studentId,
+                })
+                .from(parentsTable)
+                .where(eq(parentsTable.instituteId, targetInstituteId));
+
+            parentsList.forEach((p) => {
+                unifiedUsers.push({
+                    id: p.id + 40000,
+                    userId: null,
+                    firstName: "Parent of",
+                    lastName: p.fatherName || p.motherName || "Student",
+                    employeeCode: `PAR-${p.id}`,
+                    designation: "Parent / Guardian",
+                    email: p.fatherEmail || `parent.${p.id}@school.com`,
+                    phone: p.primaryPhone || "N/A",
+                    roleName: "PARENT",
+                    isActive: true
+                });
             });
-        });
+        }
 
         return res.status(200).json({
             success: true,
