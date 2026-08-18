@@ -26,6 +26,39 @@ router
     );
 
 router
+    .route("/allTeachers")
+    .get(
+        authenticateUser,
+        checkUserPersmission(["teacher.view"]),
+        getTeachers
+    );
+
+router
+    .route("/createTeacher")
+    .post(
+        authenticateUser,
+        checkSubscriptionLimits({ limitType: 'staff', module: 'teacher' }),
+        checkUserPersmission(["teacher.create"]),
+        createTeacher
+    );
+
+router
+    .route("/updateTeacher/:userId")
+    .put(
+        authenticateUser,
+        checkUserPersmission(["teacher.update"]),
+        updateTeacher
+    );
+
+router
+    .route("/toggleStatus/:userId")
+    .patch(
+        authenticateUser,
+        checkUserPersmission(["teacher.update"]),
+        toggleTeacherStatus
+    );
+
+router
     .route("/:userId")
     .put(
         authenticateUser,
@@ -34,7 +67,7 @@ router
     )
     .patch(
         authenticateUser,
-        checkUserPersmission(["teacher.update"]), // using update permission to toggle active state
+        checkUserPersmission(["teacher.update"]),
         toggleTeacherStatus
     );
 

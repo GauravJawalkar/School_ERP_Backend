@@ -14,7 +14,7 @@ import {
     subjectAllocationsTable,
     academicYearsTable
 } from "../models";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or, ilike } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { getLoggedInUserDetails } from "../services/auth.service";
 
@@ -25,19 +25,43 @@ export const getTeachers = async (req: Request, res: Response) => {
         const isSuperAdmin = roles.includes("SUPER_ADMIN");
         let targetInstituteId = loggedInInstId;
 
-        if (isSuperAdmin && req.query.instituteId) {
-            targetInstituteId = Number(req.query.instituteId);
+        const schoolSlug = (req.query.schoolSlug || req.query.instituteSlug || req.query.slug) as string | undefined;
+        const queryInstId = req.query.instituteId ? Number(req.query.instituteId) : undefined;
+
+        if (queryInstId && !isNaN(queryInstId)) {
+            targetInstituteId = queryInstId;
+        } else if (schoolSlug) {
+            const [inst] = await db
+                .select({ id: instituteProfileTable.id })
+                .from(instituteProfileTable)
+                .where(eq(instituteProfileTable.slug, schoolSlug))
+                .limit(1);
+            if (inst) {
+                targetInstituteId = inst.id;
+            }
         }
 
         if (!targetInstituteId || isNaN(targetInstituteId)) {
             return res.status(400).json({
                 success: false,
-                message: "Valid institute ID is required",
+                message: "Valid institute identifier (schoolSlug or instituteId) is required",
                 status: 400
             });
         }
 
-        const teachers = await db
+        if (!isSuperAdmin) {
+            if (!loggedInInstId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "User is not associated with an institute",
+                    status: 403
+                });
+            }
+            targetInstituteId = loggedInInstId;
+        }
+
+        // Fetch teachers by querying staffTable and left-joining teacherProfileTable & roles
+        const rawTeachers = await db
             .select({
                 userId: usersTable.id,
                 firstName: usersTable.firstName,
@@ -62,11 +86,32 @@ export const getTeachers = async (req: Request, res: Response) => {
                 isClassTeacher: teacherProfileTable.isClassTeacher,
                 schoolName: instituteProfileTable.schoolName
             })
-            .from(teacherProfileTable)
-            .leftJoin(staffTable, eq(teacherProfileTable.staffId, staffTable.id))
-            .leftJoin(usersTable, eq(staffTable.userId, usersTable.id))
-            .leftJoin(instituteProfileTable, eq(teacherProfileTable.instituteId, instituteProfileTable.id))
-            .where(eq(teacherProfileTable.instituteId, targetInstituteId));
+            .from(staffTable)
+            .innerJoin(usersTable, eq(staffTable.userId, usersTable.id))
+            .leftJoin(userRoleTable, eq(usersTable.id, userRoleTable.userId))
+            .leftJoin(rolesTable, eq(userRoleTable.roleId, rolesTable.id))
+            .leftJoin(teacherProfileTable, eq(staffTable.id, teacherProfileTable.staffId))
+            .leftJoin(instituteProfileTable, eq(staffTable.instituteId, instituteProfileTable.id))
+            .where(
+                and(
+                    eq(staffTable.instituteId, targetInstituteId),
+                    or(
+                        eq(rolesTable.name, "TEACHER"),
+                        isNotNull(teacherProfileTable.id),
+                        ilike(staffTable.designation, "%Teacher%")
+                    )
+                )
+            );
+
+        // Deduplicate staff records in case of multiple role mappings
+        const seenStaffIds = new Set<number>();
+        const teachers: any[] = [];
+        for (const t of rawTeachers) {
+            if (t.staffId && !seenStaffIds.has(t.staffId)) {
+                seenStaffIds.add(t.staffId);
+                teachers.push(t);
+            }
+        }
 
         const staffIds = teachers.map((t) => t.staffId).filter(Boolean) as number[];
 
@@ -174,16 +219,32 @@ export const createTeacher = async (req: Request, res: Response) => {
             qualification,
             majorSubjects,
             reqInstId,
+            instituteId,
+            schoolSlug,
             classTeacherSections,
             subjectTeacherAllocations
         } = req.body;
 
-        const targetInstituteId = (isSuperAdmin && reqInstId) ? Number(reqInstId) : loggedInInstId;
+        let targetInstituteId = loggedInInstId;
+        const incomingInstId = instituteId || reqInstId;
 
-        if (!targetInstituteId) {
+        if (isSuperAdmin && incomingInstId) {
+            targetInstituteId = Number(incomingInstId);
+        } else if (isSuperAdmin && schoolSlug) {
+            const [inst] = await db
+                .select({ id: instituteProfileTable.id })
+                .from(instituteProfileTable)
+                .where(eq(instituteProfileTable.slug, schoolSlug))
+                .limit(1);
+            if (inst) {
+                targetInstituteId = inst.id;
+            }
+        }
+
+        if (!targetInstituteId || isNaN(targetInstituteId)) {
             return res.status(400).json({
                 success: false,
-                message: "Valid institute ID is required",
+                message: "Valid institute ID or schoolSlug is required",
                 status: 400
             });
         }
@@ -308,9 +369,18 @@ export const createTeacher = async (req: Request, res: Response) => {
                     )
                     .limit(1);
 
-                const academicYearId = activeYear?.id;
+                let academicYearId = activeYear?.id;
                 if (!academicYearId) {
-                    throw new Error("No active academic year found for this institute");
+                    const [fallbackYear] = await tx
+                        .select({ id: academicYearsTable.id })
+                        .from(academicYearsTable)
+                        .where(eq(academicYearsTable.instituteId, targetInstituteId))
+                        .limit(1);
+                    academicYearId = fallbackYear?.id;
+                }
+
+                if (!academicYearId) {
+                    throw new Error("No academic year found for this institute. Please create an Academic Year before assigning subjects.");
                 }
 
                 for (const alloc of subjectTeacherAllocations) {
@@ -461,7 +531,7 @@ export const updateTeacher = async (req: Request, res: Response) => {
                     .set(staffUpdatePayload)
                     .where(eq(staffTable.id, staff.id));
 
-                // Update Teacher Profile details
+                // Update or create Teacher Profile details
                 const teacherProfilePayload: any = {
                     qualification,
                     majorSubjects,
@@ -470,10 +540,30 @@ export const updateTeacher = async (req: Request, res: Response) => {
 
                 Object.keys(teacherProfilePayload).forEach(key => teacherProfilePayload[key] === undefined && delete teacherProfilePayload[key]);
 
-                await tx
-                    .update(teacherProfileTable)
-                    .set(teacherProfilePayload)
-                    .where(eq(teacherProfileTable.staffId, staff.id));
+                const [existingProfile] = await tx
+                    .select({ id: teacherProfileTable.id })
+                    .from(teacherProfileTable)
+                    .where(eq(teacherProfileTable.staffId, staff.id))
+                    .limit(1);
+
+                if (existingProfile) {
+                    if (Object.keys(teacherProfilePayload).length > 0) {
+                        await tx
+                            .update(teacherProfileTable)
+                            .set(teacherProfilePayload)
+                            .where(eq(teacherProfileTable.staffId, staff.id));
+                    }
+                } else {
+                    await tx
+                        .insert(teacherProfileTable)
+                        .values({
+                            staffId: staff.id,
+                            instituteId: existingUser.instituteId,
+                            qualification: qualification || [],
+                            majorSubjects: majorSubjects || [],
+                            isClassTeacher: classTeacherSections !== undefined ? (classTeacherSections.length > 0) : false
+                        });
+                }
 
                 // 1. Sync Class Teacher Sections
                 if (classTeacherSections !== undefined) {
@@ -513,9 +603,18 @@ export const updateTeacher = async (req: Request, res: Response) => {
                             )
                             .limit(1);
 
-                        const academicYearId = activeYear?.id;
+                        let academicYearId = activeYear?.id;
                         if (!academicYearId) {
-                            throw new Error("No active academic year found for this institute");
+                            const [fallbackYear] = await tx
+                                .select({ id: academicYearsTable.id })
+                                .from(academicYearsTable)
+                                .where(eq(academicYearsTable.instituteId, existingUser.instituteId))
+                                .limit(1);
+                            academicYearId = fallbackYear?.id;
+                        }
+
+                        if (!academicYearId) {
+                            throw new Error("No academic year found for this institute. Please create an Academic Year before assigning subjects.");
                         }
 
                         for (const alloc of subjectTeacherAllocations) {
