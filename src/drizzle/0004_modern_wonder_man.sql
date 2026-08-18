@@ -1,0 +1,1 @@
+ALTER TABLE "classesTable" ADD COLUMN "board" varchar(50) DEFAULT 'CBSE' NOT NULL;

@@ -21,14 +21,15 @@ export const getNextYearClass = async (
         throw new Error("Current class not found");
     }
 
-    // Find next class by orderIndex in target year
+    // Find next class by orderIndex in target year and matching board
     const [nextClass] = await db
         .select()
         .from(classesTable)
         .where(
             and(
                 eq(classesTable.academicYearId, targetAcademicYearId),
-                eq(classesTable.orderIndex, (currentClass.orderIndex || 0) + 1)
+                eq(classesTable.orderIndex, (currentClass.orderIndex || 0) + 1),
+                eq(classesTable.board, currentClass.board)
             )
         )
         .limit(1);
@@ -54,14 +55,15 @@ export const getSameLevelNextYearClass = async (
         throw new Error("Current class not found");
     }
 
-    // Find SAME orderIndex in next year
+    // Find SAME orderIndex in next year and matching board
     const [sameClass] = await db
         .select()
         .from(classesTable)
         .where(
             and(
                 eq(classesTable.academicYearId, targetAcademicYearId),
-                eq(classesTable.orderIndex, currentClass.orderIndex || 0)
+                eq(classesTable.orderIndex, currentClass.orderIndex || 0),
+                eq(classesTable.board, currentClass.board)
             )
         )
         .limit(1);
@@ -77,6 +79,7 @@ export const getClassDetails = async (classId: number) => {
         .select({
             id: classesTable.id,
             className: classesTable.className,
+            board: classesTable.board,
             orderIndex: classesTable.orderIndex,
             academicYearId: classesTable.academicYearId,
             instituteId: classesTable.instituteId

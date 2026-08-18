@@ -15,7 +15,25 @@ const createAddmission = async (req: Request, res: Response) => {
 
         const targetInstituteId = (isSuperAdmin && reqInstId) ? Number(reqInstId) : loggedInInstId;
 
-        if (!academicYearId || !admissionDate || !targetInstituteId || !name || !board || !parentPhoneNo || !classId) {
+        let effectiveBoard = (board && typeof board === "string" && board.trim() !== "") ? board.trim().toUpperCase() : null;
+
+        if (!effectiveBoard && classId) {
+            const [targetClass] = await db
+                .select({ id: classesTable.id, board: classesTable.board })
+                .from(classesTable)
+                .where(eq(classesTable.id, Number(classId)))
+                .limit(1);
+
+            if (targetClass?.board) {
+                effectiveBoard = targetClass.board;
+            }
+        }
+
+        if (!effectiveBoard) {
+            effectiveBoard = "CBSE";
+        }
+
+        if (!academicYearId || !admissionDate || !targetInstituteId || !name || !parentPhoneNo || !classId) {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 });
         }
 
@@ -42,7 +60,7 @@ const createAddmission = async (req: Request, res: Response) => {
                 admissionDate,
                 instituteId: targetInstituteId,
                 name,
-                board,
+                board: effectiveBoard,
                 parentPhoneNo,
                 applicationStatus,
                 classId

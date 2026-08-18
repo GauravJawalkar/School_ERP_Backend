@@ -277,7 +277,7 @@ const createSchoolAdmin = async (req: Request, res: Response) => {
 
 const createSchoolClass = async (req: Request, res: Response) => {
     try {
-        const { className, academicYearId, capacity, instituteId: bodyInstituteId } = req.body;
+        const { className, academicYearId, capacity, board, instituteId: bodyInstituteId } = req.body;
         const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
         const targetInstituteId = isSuperAdmin && bodyInstituteId ? Number(bodyInstituteId) : loggedInInstId;
 
@@ -285,24 +285,28 @@ const createSchoolClass = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Please provide required fields', status: 400 })
         }
 
+        const targetBoard = (board && typeof board === "string" && board.trim() !== "") ? board.trim().toUpperCase() : "CBSE";
+
         const [existingClass] = await db
             .select()
             .from(classesTable)
             .where(
                 and(
                     eq(classesTable.className, className),
+                    eq(classesTable.board, targetBoard),
                     eq(classesTable.academicYearId, academicYearId),
                     eq(classesTable.instituteId, targetInstituteId)
                 )
             ).limit(1);
 
         if (existingClass) {
-            return res.status(400).json({ message: 'Class with the same name already exists for this academic year.', status: 400 });
+            return res.status(400).json({ message: `Class '${className}' (${targetBoard}) already exists for this academic year.`, status: 400 });
         }
 
         const [newClass] = await db.insert(classesTable).values({
             instituteId: targetInstituteId,
             className,
+            board: targetBoard,
             academicYearId,
             capacity: capacity ? Number(capacity) : null
         }).returning();
@@ -693,6 +697,7 @@ const getSchoolDetails = async (req: Request, res: Response) => {
                         json_agg(DISTINCT jsonb_build_object(
                             'id', ${classesTable.id},
                             'className', ${classesTable.className},
+                            'board', ${classesTable.board},
                             'orderIndex', ${classesTable.orderIndex},
                             'capacity', ${classesTable.capacity},
                             'academicYearId', ${classesTable.academicYearId},
@@ -1027,7 +1032,7 @@ const updateSchoolStatus = async (req: Request, res: Response) => {
 const updateSchoolClass = async (req: Request, res: Response) => {
     try {
         const classId = Number(req.params.id);
-        const { className, academicYearId, capacity } = req.body;
+        const { className, academicYearId, capacity, board } = req.body;
         const { instituteId: loggedInInstId, isSuperAdmin } = await getLoggedInUserDetails(req);
 
         if (!classId) {
@@ -1049,8 +1054,14 @@ const updateSchoolClass = async (req: Request, res: Response) => {
             return res.status(403).json({ message: "Forbidden: You cannot modify another school's class", status: 403 });
         }
 
-        // Check uniqueness if class name or academic year is changing
-        if ((className && className !== existingClass.className) || (academicYearId && Number(academicYearId) !== existingClass.academicYearId)) {
+        const checkBoard = (board && typeof board === "string" && board.trim() !== "") ? board.trim().toUpperCase() : existingClass.board;
+
+        // Check uniqueness if class name, board, or academic year is changing
+        if (
+            (className && className !== existingClass.className) || 
+            (academicYearId && Number(academicYearId) !== existingClass.academicYearId) ||
+            (board && checkBoard !== existingClass.board)
+        ) {
             const checkName = className || existingClass.className;
             const checkYear = academicYearId ? Number(academicYearId) : existingClass.academicYearId;
 
@@ -1060,6 +1071,7 @@ const updateSchoolClass = async (req: Request, res: Response) => {
                 .where(
                     and(
                         eq(classesTable.className, checkName),
+                        eq(classesTable.board, checkBoard),
                         eq(classesTable.academicYearId, checkYear),
                         eq(classesTable.instituteId, existingClass.instituteId),
                         ne(classesTable.id, classId)
@@ -1068,7 +1080,7 @@ const updateSchoolClass = async (req: Request, res: Response) => {
                 .limit(1);
 
             if (duplicateClass) {
-                return res.status(400).json({ message: "A class with this name already exists for the selected academic year.", status: 400 });
+                return res.status(400).json({ message: `A class with name '${checkName}' (${checkBoard}) already exists for the selected academic year.`, status: 400 });
             }
         }
 
@@ -1076,6 +1088,7 @@ const updateSchoolClass = async (req: Request, res: Response) => {
             .update(classesTable)
             .set({
                 className: className || existingClass.className,
+                board: checkBoard,
                 academicYearId: academicYearId ? Number(academicYearId) : existingClass.academicYearId,
                 capacity: capacity !== undefined ? Number(capacity) : existingClass.capacity,
                 updatedAt: new Date()

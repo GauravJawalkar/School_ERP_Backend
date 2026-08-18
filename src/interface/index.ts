@@ -75,6 +75,14 @@ export interface PromoteStudentParams {
     promotionType?: PromotionType;
 }
 
+export interface BoardAffiliationDetail {
+    board: string;
+    affiliationNumber?: string;
+    medium?: string;
+    validUntil?: string;
+    status?: 'PROVISIONAL' | 'PERMANENT' | 'ACTIVE';
+}
+
 export interface InstituteAdditionalInfo {
     establishedYear?: number;
     founderName?: string;
@@ -84,4 +92,5 @@ export interface InstituteAdditionalInfo {
     notableAlumni?: string[];
     tags?: string[];
     boardsAffiliated?: string[];
-}
+    boardAffiliations?: BoardAffiliationDetail[];
+}

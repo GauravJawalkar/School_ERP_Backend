@@ -37,10 +37,14 @@ export const admissionsTable = pgTable('admissionsTable', {
     updatedAt: timestamp('updatedAt').$onUpdate(() => new Date()),
 })
 
+export const EDUCATIONAL_BOARDS = ['CBSE', 'ICSE', 'STATE_BOARD', 'IB', 'CAMBRIDGE', 'NIOS', 'OTHER'] as const;
+export type EducationalBoard = (typeof EDUCATIONAL_BOARDS)[number] | string;
+
 export const classesTable = pgTable('classesTable', {
     id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
     instituteId: integer('instituteId').references(() => instituteProfileTable.id).notNull(),
     className: varchar('className', { length: 50 }).notNull(),
+    board: varchar('board', { length: 50 }).notNull().default('CBSE'),
     orderIndex: integer('orderIndex'),
     academicYearId: integer('academicYearId').references(() => academicYearsTable.id, { onDelete: 'cascade' }).notNull(),
     capacity: integer('capacity'),

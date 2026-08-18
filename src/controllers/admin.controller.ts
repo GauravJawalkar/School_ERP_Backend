@@ -323,7 +323,7 @@ const getStaffByInstitute = async (req: Request, res: Response) => {
                     lastName: admin.lastName || "Admin",
                     designation: "School Administrator",
                     department: "Administration",
-                    joiningDate: null,
+                    joiningDate: "",
                     salaryBasic: "0",
                     bankDetails: null,
                     email: admin.email,
@@ -471,7 +471,7 @@ const updateStaff = async (req: Request, res: Response) => {
             await tx
                 .update(userRoleTable)
                 .set({ roleId: targetRole.id })
-                .where(eq(userRoleTable.userId, staff.userId));
+                .where(eq(userRoleTable.userId, targetUserId!));
 
             // Update staffTable
             await tx
