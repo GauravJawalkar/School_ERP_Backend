@@ -133,7 +133,7 @@ const createRole = async (req: Request, res: Response) => {
                 .insert(rolesTable)
                 .values({
                     name: targetName,
-                    instituteId: instituteId,
+                    instituteId: roleIsSystem ? null : instituteId,
                     description: description || `Custom security profile for ${name}`,
                     createdBy: loggedInUserId,
                     expiryDate: expiry,
@@ -145,16 +145,19 @@ const createRole = async (req: Request, res: Response) => {
                 throw new Error("Failed to insert role record.");
             }
 
-            // Assign baseline permissions if provided
+            // Assign baseline permissions if provided (deduplicated)
             if (Array.isArray(permissions) && permissions.length > 0) {
-                await tx
-                    .insert(rolePermissionTable)
-                    .values(
-                        permissions.map((permId: number) => ({
-                            roleId: insertedRole.id,
-                            permissionId: permId,
-                        }))
-                    );
+                const uniquePermIds: number[] = [...new Set(permissions.map(Number))].filter(Boolean);
+                if (uniquePermIds.length > 0) {
+                    await tx
+                        .insert(rolePermissionTable)
+                        .values(
+                            uniquePermIds.map((permId: number) => ({
+                                roleId: insertedRole.id,
+                                permissionId: permId,
+                            }))
+                        );
+                }
             }
 
             return insertedRole;
@@ -248,12 +251,13 @@ const updateRolePermissions = async (req: Request, res: Response) => {
                 .delete(rolePermissionTable)
                 .where(eq(rolePermissionTable.roleId, roleId));
 
-            // Insert new mappings
-            if (permissions.length > 0) {
+            // Insert new mappings (deduplicated)
+            const uniquePermIds: number[] = [...new Set(permissions.map(Number))].filter(Boolean);
+            if (uniquePermIds.length > 0) {
                 await tx
                     .insert(rolePermissionTable)
                     .values(
-                        permissions.map((permId: number) => ({
+                        uniquePermIds.map((permId: number) => ({
                             roleId: roleId,
                             permissionId: permId,
                         }))

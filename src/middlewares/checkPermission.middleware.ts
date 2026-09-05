@@ -1,32 +1,62 @@
 import type { NextFunction, Request, Response } from "express";
 import type { JwtPayload } from "jsonwebtoken";
 
-const checkUserPersmission = (requiredPermissions: string[] = []) => {
+interface PermissionCheckOptions {
+    mode?: "ANY" | "ALL";
+    allowSuperAdmin?: boolean;
+}
+
+const checkUserPermission = (
+    requiredPermissions: string[] = [],
+    options: PermissionCheckOptions = { mode: "ANY", allowSuperAdmin: true }
+) => {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
-
             if (!req.user) {
                 return res.status(401).json({
                     success: false,
-                    message: "Authentication required : Login"
+                    message: "Authentication required. Please login."
                 });
             }
 
-            // If req.user can be a string (e.g., raw token), reject or handle accordingly
             if (typeof req.user === "string") {
                 return res.status(401).json({
                     success: false,
-                    message: "Invalid token payload"
+                    message: "Invalid token payload."
                 });
             }
 
-            // Narrow to JwtPayload-like object that may contain permissions
-            const userPermissions = (req.user as JwtPayload & { permissions?: string[] }).permissions || [];
+            const user = req.user as JwtPayload & { permissions?: string[]; roles?: string[] };
+            const userPermissions = user.permissions || [];
+            const userRoles = user.roles || [];
 
-            // If no required permissions specified, allow
-            const hasPermission = requiredPermissions.length === 0 || requiredPermissions.some(permission => userPermissions.includes(permission));
+            // 1. Super Admin bypass (Platform Owner has root access)
+            if (options.allowSuperAdmin !== false && userRoles.includes("SUPER_ADMIN")) {
+                return next();
+            }
 
-            if (!hasPermission) {
+            // 2. Wildcard bypass (if user has global '*' permission)
+            if (userPermissions.includes("*")) {
+                return next();
+            }
+
+            // If no specific permissions are required, proceed
+            if (requiredPermissions.length === 0) {
+                return next();
+            }
+
+            // Helper to check if user has a single permission (including module wildcard e.g. "student.*")
+            const checkSingle = (perm: string) => {
+                if (userPermissions.includes(perm)) return true;
+                const modulePrefix = perm.split(".")[0];
+                return userPermissions.includes(`${modulePrefix}.*`);
+            };
+
+            const isAllowed = options.mode === "ALL"
+                ? requiredPermissions.every(checkSingle)
+                : requiredPermissions.some(checkSingle);
+
+            if (!isAllowed) {
                 return res.status(403).json({
                     success: false,
                     message: "Access denied. You don't have the required permissions.",
@@ -35,13 +65,18 @@ const checkUserPersmission = (requiredPermissions: string[] = []) => {
                 });
             }
 
-            next();
-
+            return next();
         } catch (error) {
-            console.error("Error in check permission middleware : ", error);
-            return res.status(500).json({ error: "Internal server error in check permission middleware" });
+            console.error("Error in check permission middleware:", error);
+            return res.status(500).json({
+                success: false,
+                error: "Internal server error in check permission middleware"
+            });
         }
-    }
-}
+    };
+};
 
-export { checkUserPersmission }
+// Backwards compatibility alias
+const checkUserPersmission = checkUserPermission;
+
+export { checkUserPermission, checkUserPersmission };

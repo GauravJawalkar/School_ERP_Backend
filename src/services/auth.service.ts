@@ -6,9 +6,9 @@ export async function getLoggedInUserDetails(req: Request) {
     const loggedInUser = req?.user as TokenUser;
     const loggedInUserId = loggedInUser?.id;
     const instituteId = Number(loggedInUser?.instituteId);
-    const roles = loggedInUser?.roles;
-    const isloggedInUserActive = loggedInUser?.isActive
+    const roles = loggedInUser?.roles || [];
+    const isloggedInUserActive = loggedInUser?.isActive ?? true;
     const isSuperAdmin = roles.includes(superAdmin);
-    const isSchoolAdmin = roles?.includes(schoolAdmin)
-    return { instituteId, roles, loggedInUserId, isloggedInUserActive, isSuperAdmin, isSchoolAdmin }
-}
+    const isSchoolAdmin = roles.includes(schoolAdmin);
+    return { instituteId, roles, loggedInUserId, isloggedInUserActive, isSuperAdmin, isSchoolAdmin };
+}

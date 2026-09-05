@@ -1,4 +1,4 @@
-import { pgTable, integer, uuid, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, integer, uuid, timestamp, unique } from "drizzle-orm/pg-core";
 import { usersTable } from "../user/users.model";
 import { rolesTable } from "./roles.model";
 
@@ -8,4 +8,7 @@ export const userRoleTable = pgTable('userRoleTable', {
     roleId: integer('roleId').notNull().references(() => rolesTable.id, { onDelete: 'cascade' }),
     assignedAt: timestamp('assignedAt').defaultNow(),
     assignedBy: uuid('assignedBy').references(() => usersTable.id, { onDelete: 'set null' }),
-})
+}, (table) => [
+    unique("user_role_unique").on(table.userId, table.roleId)
+])
+

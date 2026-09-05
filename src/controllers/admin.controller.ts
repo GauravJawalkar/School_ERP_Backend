@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { db } from "../db";
 import { academicYearsTable, instituteProfileTable, rolesTable, userRoleTable, usersTable, studentsTable, parentsTable } from "../models";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import type { BankDetails, TokenUser } from "../interface";
 import bcrypt from "bcrypt";
 import { staffTable, teacherProfileTable } from "../models/staff/staff.model";
@@ -406,6 +406,14 @@ const updateStaff = async (req: Request, res: Response) => {
 
             if (user) {
                 targetUserId = user.id;
+                const [staff] = await db
+                    .select()
+                    .from(staffTable)
+                    .where(eq(staffTable.userId, user.id))
+                    .limit(1);
+                if (staff) {
+                    staffRecord = staff;
+                }
             }
         }
 
@@ -436,7 +444,15 @@ const updateStaff = async (req: Request, res: Response) => {
         const [targetRole] = await db
             .select()
             .from(rolesTable)
-            .where(eq(rolesTable.name, roleName))
+            .where(
+                and(
+                    eq(rolesTable.name, roleName),
+                    or(
+                        eq(rolesTable.isSystemRole, true),
+                        eq(rolesTable.instituteId, instituteId)
+                    )
+                )
+            )
             .limit(1);
 
         if (!targetRole) {
@@ -467,38 +483,48 @@ const updateStaff = async (req: Request, res: Response) => {
                 })
                 .where(eq(usersTable.id, targetUserId!));
 
-            // Update userRoleTable
-            await tx
+            // Update userRoleTable (upsert)
+            const updatedUserRole = await tx
                 .update(userRoleTable)
                 .set({ roleId: targetRole.id })
-                .where(eq(userRoleTable.userId, targetUserId!));
+                .where(eq(userRoleTable.userId, targetUserId!))
+                .returning();
 
-            // Update staffTable
-            await tx
-                .update(staffTable)
-                .set({
-                    firstName,
-                    lastName,
-                    employeeCode,
-                    designation,
-                    joiningDate,
-                    salaryBasic: String(salaryBasic),
-                    bankDetails
-                })
-                .where(eq(staffTable.id, staffId));
+            if (updatedUserRole.length === 0) {
+                await tx.insert(userRoleTable).values({
+                    userId: targetUserId!,
+                    roleId: targetRole.id
+                });
+            }
+
+            // Update staffTable if staff record exists
+            if (staffRecord) {
+                await tx
+                    .update(staffTable)
+                    .set({
+                        firstName,
+                        lastName,
+                        employeeCode,
+                        designation,
+                        joiningDate,
+                        salaryBasic: String(salaryBasic || 0),
+                        bankDetails
+                    })
+                    .where(eq(staffTable.id, staffRecord.id));
+            }
 
             // If role is updated to TEACHER, ensure teacher profile exists
-            if (roleName === "TEACHER") {
+            if (roleName === "TEACHER" && staffRecord) {
                 const [existingProfile] = await tx
                     .select()
                     .from(teacherProfileTable)
-                    .where(eq(teacherProfileTable.staffId, staffId))
+                    .where(eq(teacherProfileTable.staffId, staffRecord.id))
                     .limit(1);
 
                 if (!existingProfile) {
                     await tx.insert(teacherProfileTable).values({
-                        staffId,
-                        instituteId
+                        staffId: staffRecord.id,
+                        instituteId: staffRecord.instituteId || instituteId
                     });
                 }
             }
